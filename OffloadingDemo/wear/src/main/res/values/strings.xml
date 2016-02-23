@@ -1,0 +1,14 @@
+<resources>
+    <string name="app_name">Offloading Demo</string>
+    <string name="txt_configs">Configs →</string>
+    <string name="btn_setbytes">Bytes</string>
+    <string name="btn_setrepeat">Repeats</string>
+    <string name="btn_setuptcpdump">TCPDump</string>
+    <string name="btn_setothers">Misc.</string>
+    <string name="btn_clear">Clear</string>
+    <string name="btn_beginrx">RX Go!</string>
+    <string name="btn_begintx">TX Go!</string>
+    <string name="warn_root">Not rooted!! Must be rooted!</string>
+    <string name="stat_wifion">WiFi is ON!\n</string>
+    <string name="stat_wifioff">WiFi is NOT On!\n</string>
+</resources>

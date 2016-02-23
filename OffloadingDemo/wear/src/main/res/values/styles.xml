@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="indiego">#3F51B5</color>
+    <color name="pink">#FF4081</color>
+    <style name="theme_btn_tx" parent="android:Theme.Material">
+        <item name="android:colorButtonNormal">@color/indiego</item>
+    </style>
+    <style name="theme_btn_rx" parent="android:Theme.Material">
+        <item name="android:colorButtonNormal">@color/pink</item>
+    </style>
+</resources>

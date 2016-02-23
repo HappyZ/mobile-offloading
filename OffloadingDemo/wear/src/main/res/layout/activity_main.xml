@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="utf-8"?>
+<android.support.wearable.view.BoxInsetLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:id="@+id/container"
+    tools:context=".MainActivity"
+    tools:deviceIds="wear">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
+
+
+        <LinearLayout
+            android:id="@+id/container_txrx"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:orientation="horizontal"
+            android:layout_weight="2">
+
+            <Button
+                android:theme="@style/theme_btn_tx"
+                android:id="@+id/btn_startTransmit"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:text="@string/btn_begintx"
+                android:textStyle="bold"
+                android:textSize="20dp"
+                android:textColor="#FFFFFF"/>
+
+            <Button
+                android:theme="@style/theme_btn_rx"
+                android:id="@+id/btn_startReceive"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:text="@string/btn_beginrx"
+                android:textStyle="bold"
+                android:textSize="20dp"
+                android:textColor="#FFFFFF"/>
+
+        </LinearLayout>
+
+        <HorizontalScrollView
+            android:id="@+id/container_config"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="2">
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_margin="5dp"
+                    android:text="@string/txt_configs"
+                    android:textStyle="bold"
+                    android:layout_gravity="center"
+                    android:textSize="16dp"/>
+
+                <Button
+                    android:id="@+id/btn_setByte2send"
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:text="@string/btn_setbytes"
+                    android:textSize="16dp"/>
+
+                <Button
+                    android:id="@+id/btn_setRepeatTimes"
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:text="@string/btn_setrepeat"
+                    android:textSize="16dp"/>
+
+                <Button
+                    android:id="@+id/btn_setTCPDumpInterface"
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:text="@string/btn_setuptcpdump"
+                    android:textSize="16dp"/>
+
+                <Button
+                    android:id="@+id/btn_setLogFreq"
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:text="Set\nLog Freq"
+                    android:textSize="16dp"/>
+
+                <Button
+                    android:id="@+id/btn_setOthers"
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:text="@string/btn_setothers"
+                    android:textSize="16dp"/>
+
+                <Button
+                    android:id="@+id/btn_clearStatus"
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:text="@string/btn_clear"
+                    android:textSize="16dp"/>
+            </LinearLayout>
+
+        </HorizontalScrollView>
+
+        <ScrollView
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="2">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical" >
+
+                <TextView
+                    android:id="@+id/txt_results"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:text=""
+                    android:gravity="center"
+                    android:textStyle="bold"
+                    android:textSize="20dp"
+                    android:textColor="@color/indiego"/>
+
+            </LinearLayout>
+        </ScrollView>
+    </LinearLayout>
+
+    <!--<TextView-->
+        <!--android:id="@+id/text"-->
+        <!--app:layout_box="all"-->
+        <!--android:layout_width="match_parent"-->
+        <!--android:layout_height="match_parent"-->
+        <!--android:text="@string/hello_world"/>-->
+
+    <!--<TextView-->
+        <!--android:id="@+id/clock"-->
+        <!--app:layout_box="all"-->
+        <!--android:layout_gravity="bottom|start"-->
+        <!--android:layout_width="wrap_content"-->
+        <!--android:layout_height="wrap_content"-->
+        <!--android:textColor="@android:color/white"/>-->
+
+</android.support.wearable.view.BoxInsetLayout>
