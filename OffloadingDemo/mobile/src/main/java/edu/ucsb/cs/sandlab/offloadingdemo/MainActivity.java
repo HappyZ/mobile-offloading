@@ -10,6 +10,7 @@ import android.net.wifi.WifiManager;
 import android.os.Build;
 import android.os.Environment;
 import android.os.Handler;
+import android.os.PowerManager;
 import android.provider.Settings;
 import android.os.Bundle;
 import android.util.Log;
@@ -228,12 +229,19 @@ public class MainActivity extends Activity {
                             Log.d(TAG, "selected variations " + selectedItemsThrpt);
                         }
                         Utilities.estimateTime(repeatCounts, selectedItems.size(), bytes2send, selectedItemsThrpt);
+
+                        // power management
+                        PowerManager powerManager = (PowerManager) getSystemService(POWER_SERVICE);
+                        final PowerManager.WakeLock wakelock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK,
+                                "MyWakelockTag");
+
                         new Thread(new Runnable() {
                             @Override
                             public void run() {
                                 String[] commd = new String[3];
                                 commd[0] = "su";
                                 commd[1] = "&&";
+                                wakelock.acquire();
                                 // change screen brightness to 0
                                 Settings.System.putInt(MainActivity.this.getContentResolver(),
                                         Settings.System.SCREEN_BRIGHTNESS, 0);
@@ -474,6 +482,7 @@ public class MainActivity extends Activity {
                                         e.printStackTrace();
                                     }
                                 }
+                                wakelock.release();
                                 // change screen brightness back
                                 Settings.System.putInt(MainActivity.this.getContentResolver(),
                                         Settings.System.SCREEN_BRIGHTNESS, 200);
