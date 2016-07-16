@@ -241,17 +241,24 @@ public class MainActivity extends Activity {
                                 String[] commd = new String[3];
                                 commd[0] = "su";
                                 commd[1] = "&&";
-                                wakelock.acquire();
+//                                wakelock.acquire();
                                 // change screen brightness to 0
-                                Settings.System.putInt(MainActivity.this.getContentResolver(),
-                                        Settings.System.SCREEN_BRIGHTNESS, 0);
-                                final WindowManager.LayoutParams lp = getWindow().getAttributes();
-                                lp.screenBrightness = 0.0f;// 100 / 100.0f;
+//                                Settings.System.putInt(MainActivity.this.getContentResolver(),
+//                                        Settings.System.SCREEN_BRIGHTNESS, 0);
+//                                final WindowManager.LayoutParams lp = getWindow().getAttributes();
+//                                lp.screenBrightness = 0.0f;// 100 / 100.0f;
+                                try {
+                                    Runtime.getRuntime().exec("su -c echo 0 > /sys/class/lcd/panel/lcd_power").waitFor();
+                                } catch (InterruptedException e) {
+                                    e.printStackTrace();
+                                } catch (IOException e) {
+                                    e.printStackTrace();
+                                }
                                 myHandler.post(new Runnable() {
                                     @Override
                                     public void run() {
                                         MainActivity.txt_results.append("Begin..\n");
-                                        getWindow().setAttributes(lp);
+//                                        getWindow().setAttributes(lp);
                                     }
                                 });
                                 // prepare
@@ -482,16 +489,23 @@ public class MainActivity extends Activity {
                                         e.printStackTrace();
                                     }
                                 }
-                                wakelock.release();
+//                                wakelock.release();
                                 // change screen brightness back
-                                Settings.System.putInt(MainActivity.this.getContentResolver(),
-                                        Settings.System.SCREEN_BRIGHTNESS, 200);
-                                lp.screenBrightness = 80;// 80 / 100.0f;
+//                                Settings.System.putInt(MainActivity.this.getContentResolver(),
+//                                        Settings.System.SCREEN_BRIGHTNESS, 200);
+//                                lp.screenBrightness = 50;// 50 / 100.0f;
+                                try {
+                                    Runtime.getRuntime().exec("su -c echo 1 > /sys/class/lcd/panel/lcd_power").waitFor();
+                                } catch (InterruptedException e) {
+                                    e.printStackTrace();
+                                } catch (IOException e) {
+                                    e.printStackTrace();
+                                }
                                 myHandler.post(new Runnable() {
                                     @Override
                                     public void run() {
                                         txt_results.append("All Done\n");
-                                        getWindow().setAttributes(lp);
+//                                        getWindow().setAttributes(lp);
                                     }
                                 });
                             }
