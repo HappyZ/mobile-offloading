@@ -1,14 +1,8 @@
 /*
  * Initial commit by Yibo @ Jul. 28, 2015
  * Last update by Yanzi @ Sept. 26, 2016
- *
- * TODO: "Presently (Linux 2.6.9 [and, in fact, as of this writing in June 2010]): in_fd, must
- * correspond to a file which supports mmap()-like operations (i.e., it cannot be a socket);
- * and out_fd must refer to a socket."
- * based on http://blog.superpat.com/2010/06/01/zero-copy-in-linux-with-sendfile-and-splice/.
- * need to double check in newer kernels
  */
- 
+
 #include <stdio.h>
 #include <string.h>
 #include <arpa/inet.h>
@@ -26,8 +20,8 @@
 #include <netinet/in.h>
 #include <fcntl.h>
 
-// #define ETH_P_IP    0x0800      /* Internet Protocol packet */
-// #define ETH_ALEN    6       /* from <net/ethernet.h> */
+// #define ETH_P_IP        0x0800      /* Internet Protocol packet */
+// #define ETH_ALEN        6       /* from <net/ethernet.h> */
 // #define ETH_P_ALL       0x0003
 
 // #define MY_DEST_MAC0    0xba
@@ -37,9 +31,9 @@
 // #define MY_DEST_MAC4    0x09
 // #define MY_DEST_MAC5    0x64
  
-// #define DEFAULT_IF  "lo"
-// #define BUF_SIZ     8192
- 
+// #define DEFAULT_IF      "wlan0"
+#define BUF_SIZ         8192
+
 char isNumber(char number[])
 {
     int i = 0;
@@ -70,9 +64,12 @@ int main(int argc, char *argv[])
     int fd; // file descriptor of file to send
     int sockfd; // socket 
     // int sendsize = 1488;
-    char ifName[IFNAMSIZ];
+    // char ifName[IFNAMSIZ];
+    char sendbuf[BUF_SIZ];
     struct sockaddr_in servaddr;
-    struct sockaddr_ll socket_address;
+    struct ether_header *eh = (struct ether_header *) sendbuf;
+    struct iphdr *iph = (struct iphdr *) (sendbuf + sizeof(struct ether_header));
+    // struct sockaddr_ll socket_address;
     // for misc
     int i, j, ret;
     int bytes2send = 0;
@@ -114,7 +111,7 @@ int main(int argc, char *argv[])
         bytes2send = st.st_size;
         printf("bytes2send:%d\n", bytes2send);
     }
-    
+
     // bind socket
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
     bzero(&servaddr, sizeof(servaddr));
@@ -128,7 +125,7 @@ int main(int argc, char *argv[])
         fprintf(stderr, "! Unable to connect the server.\n");
         exit(1);
     }
-    
+
     // start timing
     gettimeofday(&t_start, NULL);
 
@@ -145,13 +142,16 @@ int main(int argc, char *argv[])
             // printf(
             //     "before: total_bytes_sent %d, sentInSlot %d, quota - sentInSlot %d\n",
             //     total_bytes_sent, sentInSlot, quota - sentInSlot);
-            ret = sendfile(sockfd, fd, (off_t *)&total_bytes_sent, quota - sentInSlot);
+            read(fd, sendbuf, (quota - sentInSlot < 4096) ? (quota - sentInSlot) : 4096);
+            ret = send(sockfd, sendbuf, (quota - sentInSlot < 4096) ? (quota - sentInSlot) : 4096, 0);
+
             if (ret <= 0)
             {
                 fprintf(stderr, "! Fail to send: ret:%d, err:%d; wait for 100us..\n", ret, errno);
                 usleep(100);
                 continue;
             }
+            total_bytes_sent += ret;
             sentInSlot += ret;
             // printf(
             //     "after: total_bytes_sent %d, sentInSlot %d, quota - sentInSlot %d\n",
@@ -171,6 +171,7 @@ int main(int argc, char *argv[])
         ++slot;
     }
 
+    // end timing
     gettimeofday(&t_end, NULL);
     elapsedTime = (t_end.tv_sec - t_start.tv_sec) + (t_end.tv_usec - t_start.tv_usec) / 1000000.0;
     printf("duration(s):%lf\nthroughput(bps):%lf\n", elapsedTime, total_bytes_sent * 8 / elapsedTime);
@@ -180,4 +181,3 @@ int main(int argc, char *argv[])
     
     return 0;
 }
-
