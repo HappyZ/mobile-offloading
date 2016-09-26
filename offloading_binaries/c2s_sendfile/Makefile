@@ -1,6 +1,7 @@
 CC = arm-linux-androideabi-gcc
+# CC = gcc
 CFLAGS = -pie -fPIE
-TARGET = sendfile_usb
+TARGET = c2s_sendfile
 
 OBJS = $(patsubst %.c, %.o, $(wildcard *.c))
 HEADERS = $(wildcard *.h)
@@ -14,7 +15,7 @@ all: $(TARGET)
 
 $(TARGET): $(OBJS)
 	$(CC) $(OBJS) -Wall $(CFLAGS) -o $@
-	cp $(TARGET) /media/Lucifer/yanzi/projects/offloading/RDMAMobileDemo/app/src/main/assets/
+
 clean:
 	-rm -f *.o
 	-rm -f $(TARGET)
