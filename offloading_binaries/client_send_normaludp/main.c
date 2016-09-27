@@ -82,13 +82,9 @@ int main(int argc, char *argv[])
     if ((quota % sendsize) > 0)
     {
         // printf("quota:%d,sendsize:%d,slotLength:%d\n", quota, sendsize, slotLength);
-        slotLength = (quota / sendsize + 1) * sendsize / quota * slotLength;
+        slotLength = (uint)((double)(quota / sendsize + 1) * sendsize / quota * slotLength);
         quota = (quota / sendsize + 1) * sendsize;
         // printf("quota:%d,sendsize:%d,slotLength:%d\n", quota, sendsize, slotLength);
-    }
-    else
-    {
-        slotLength = (quota / sendsize) * sendsize / quota * slotLength;
     }
 
     // get file size (bytes2send)
@@ -125,13 +121,6 @@ int main(int argc, char *argv[])
     servaddr.sin_addr.s_addr = inet_addr(argv[2]);
     servaddr.sin_port = htons(atoi(argv[3]));
 
-    // connect socket
-    if (connect(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0)
-    {
-        fprintf(stderr, "! Unable to connect the server.\n");
-        exit(1);
-    }
-
     // start timing
     gettimeofday(&t_start, NULL);
 
@@ -142,19 +131,33 @@ int main(int argc, char *argv[])
         {
             quota = bytes2send - total_bytes_sent;
         }
+        // initialize ret
+        ret = 1;
         // send in slots
         while (sentInSlot < quota)
         {
             // printf(
             //     "before: total_bytes_sent %d, sentInSlot %d, quota - sentInSlot %d\n",
             //     total_bytes_sent, sentInSlot, quota - sentInSlot);
-            read(fd, sendbuf, (quota - sentInSlot < sendsize) ? (quota - sentInSlot) : sendsize);
+
+            // only read when we successfully send the msg
+            if (ret > 0)
+                read(fd, sendbuf, (quota - sentInSlot < sendsize) ? (quota - sentInSlot) : sendsize);
+
 			ret = sendto(
 				sockfd, sendbuf,
 				(quota - sentInSlot < sendsize) ? (quota - sentInSlot) : sendsize,
 				0, (struct sockaddr *)&servaddr, sizeof(servaddr));
+
             if (ret <= 0)
             {
+                if (errno == ECONNREFUSED)
+                {
+                    fprintf(stderr, "! Connection refused; cannot connect to server.\n");
+                    close(sockfd);
+                    close(fd);
+                    exit(1);
+                }
                 fprintf(stderr, "! Fail to send: ret:%d, err:%d; wait for 100us..\n", ret, errno);
                 usleep(100);
                 continue;
@@ -177,6 +180,15 @@ int main(int argc, char *argv[])
         }
         sentInSlot = 0;
         ++slot;
+    }
+
+    ret = sendto(sockfd, "=?!\n", 4, 0, (struct sockaddr *)&servaddr, sizeof(servaddr));
+    if (ret <= 0)
+    {
+        fprintf(stderr, "! Unable to end data transfer. errno:%d.\n", errno);
+        close(sockfd);
+        close(fd);
+        exit(1);
     }
 
     // end timing

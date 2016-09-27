@@ -84,13 +84,9 @@ int main(int argc, char *argv[])
     if ((quota % sendsize) > 0)
     {
         // printf("quota:%d,sendsize:%d,slotLength:%d\n", quota, sendsize, slotLength);
-        slotLength = (quota / sendsize + 1) * sendsize / quota * slotLength;
+        slotLength = (uint)((double)(quota / sendsize + 1) * sendsize / quota * slotLength);
         quota = (quota / sendsize + 1) * sendsize;
         // printf("quota:%d,sendsize:%d,slotLength:%d\n", quota, sendsize, slotLength);
-    }
-    else
-    {
-        slotLength = (quota / sendsize) * sendsize / quota * slotLength;
     }
 
     // get file size (bytes2send)
