@@ -1,7 +1,7 @@
 CC = arm-linux-androideabi-gcc
-#CC = gcc
-CFLAGS = -pie -fPIE -lm
-TARGET = bypassl3_usb
+# CC = gcc
+CFLAGS = -pie -fPIE
+TARGET = c2s_normaltcp_splice
 
 OBJS = $(patsubst %.c, %.o, $(wildcard *.c))
 HEADERS = $(wildcard *.h)
@@ -15,7 +15,7 @@ all: $(TARGET)
 
 $(TARGET): $(OBJS)
 	$(CC) $(OBJS) -Wall $(CFLAGS) -o $@
-	cp $(TARGET) /media/Lucifer/yanzi/projects/offloading/RDMAMobileDemo/app/src/main/assets/
+
 clean:
 	-rm -f *.o
 	-rm -f $(TARGET)

@@ -27,17 +27,6 @@
 #include <netinet/in.h>
 #include <fcntl.h>
 
-// #define ETH_P_IP    0x0800      /* Internet Protocol packet */
-// #define ETH_ALEN    6       /* from <net/ethernet.h> */
-// #define ETH_P_ALL       0x0003
-
-// #define MY_DEST_MAC0    0xba
-// #define MY_DEST_MAC1    0xf6
-// #define MY_DEST_MAC2    0xb1
-// #define MY_DEST_MAC3    0x71
-// #define MY_DEST_MAC4    0x09
-// #define MY_DEST_MAC5    0x64
- 
 // #define DEFAULT_IF  "lo"
 // #define BUF_SIZ     8192
 
@@ -74,18 +63,36 @@ int main(int argc, char *argv[])
     // struct sockaddr_ll socket_address;
     // for misc
     int ret;
+    int sendsize = 1460; // 1500 MTU - 20 IPv4 - 20 TCP
     int bytes2send = 0;
     struct stat st;
 
     if (argc < 4)
     {
-        printf("Usage: %s <bytes2send/file2send> <ip> <port> <[optional] bandwidth (bps)>\n", argv[0]);
+        printf("Usage: %s <bytes2send/file2send> <ip> <port> <[optional] bandwidth (bps)> <[optional] sendsize (bytes)>\n", argv[0]);
         exit(0);
     }
 
     // set bandwidth
     if (argc > 4)
         quota = atoi(argv[4]) / 8 / (1000000 / slotLength);
+
+    // set sendsize (if larger than 1460 will do packetization (fragmentation))
+    if (argc > 5)
+        sendsize = atoi(argv[5]);
+    
+    // adjust slotLength to address packet size issue in the end
+    if ((quota % sendsize) > 0)
+    {
+        // printf("quota:%d,sendsize:%d,slotLength:%d\n", quota, sendsize, slotLength);
+        slotLength = (quota / sendsize + 1) * sendsize / quota * slotLength;
+        quota = (quota / sendsize + 1) * sendsize;
+        // printf("quota:%d,sendsize:%d,slotLength:%d\n", quota, sendsize, slotLength);
+    }
+    else
+    {
+        slotLength = (quota / sendsize) * sendsize / quota * slotLength;
+    }
 
     // get file size (bytes2send)
     if (isNumber(argv[1]))
@@ -157,17 +164,14 @@ int main(int argc, char *argv[])
             //     total_bytes_sent, sentInSlot, quota - sentInSlot);
         }
         // control bandwidth
-        if (total_bytes_sent < bytes2send)
+        gettimeofday(&t_now, NULL);
+        elapsedTime = (t_now.tv_sec - t_start.tv_sec) * 1000000.0 + (t_now.tv_usec - t_start.tv_usec);
+        if (elapsedTime < slotLength * slot)
         {
-            gettimeofday(&t_now, NULL);
-            elapsedTime = (t_now.tv_sec - t_start.tv_sec) * 1000000.0 + (t_now.tv_usec - t_start.tv_usec);
-            if (elapsedTime < slotLength * slot)
-            {
-                // printf(
-                //     "sent %d, quota %d, bytes2send %d, usleep %lfus\n",
-                //     total_bytes_sent, quota, bytes2send, slotLength * slot - elapsedTime);
-                usleep((int)(slotLength * slot - elapsedTime));
-            }
+            // printf(
+            //     "sent %d, quota %d, bytes2send %d, usleep %lfus\n",
+            //     total_bytes_sent, quota, bytes2send, slotLength * slot - elapsedTime);
+            usleep((int)(slotLength * slot - elapsedTime));
         }
         sentInSlot = 0;
         ++slot;

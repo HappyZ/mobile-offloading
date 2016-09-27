@@ -77,26 +77,40 @@ int main(int argc, char *argv[])
     int sendsize = 1500; // 1500 MTU (raw socket)
     int bytes2send = 0;
     struct stat st;
+    unsigned char my_dest_mac[6];
 
-    if (argc < 2)
+    if (argc < 3)
     {
-        printf("Usage: %s <bytes2send/file2send> <[optional] bandwidth (bps)> <[optional] sendsize (bytes)> <[optional] interface>\n", argv[0]);
+        printf("Usage: %s <bytes2send/file2send> <dest MAC address> <[optional] bandwidth (bps)> <[optional] sendsize (bytes)> <[optional] interface>\n", argv[0]);
         exit(0);
     }
 
     // set bandwidth
-    if (argc > 2)
-        quota = atoi(argv[2]) / 8 / (1000000 / slotLength);
+    if (argc > 3)
+        quota = atoi(argv[3]) / 8 / (1000000 / slotLength);
 
     // set sendsize (if larger than 1460 will do packetization (fragmentation))
-    if (argc > 3)
-        sendsize = atoi(argv[3]);
+    if (argc > 4)
+        sendsize = atoi(argv[4]);
 
     //  set interface
-    if (argc > 4) {
-        strcpy(ifName, argv[4]);
+    if (argc > 5) {
+        strcpy(ifName, argv[5]);
     } else {
         strcpy(ifName, DEFAULT_IF);
+    }
+
+    // adjust slotLength to address packet size issue in the end
+    if ((quota % sendsize) > 0)
+    {
+        // printf("quota:%d,sendsize:%d,slotLength:%d\n", quota, sendsize, slotLength);
+        slotLength = (quota / sendsize + 1) * sendsize / quota * slotLength;
+        quota = (quota / sendsize + 1) * sendsize;
+        // printf("quota:%d,sendsize:%d,slotLength:%d\n", quota, sendsize, slotLength);
+    }
+    else
+    {
+        slotLength = (quota / sendsize) * sendsize / quota * slotLength;
     }
 
     // get file size (bytes2send)
@@ -153,6 +167,16 @@ int main(int argc, char *argv[])
     // Set mem
     memset(sendbuf, 0, BUF_SIZ);
 
+    // parse input MAC address
+    sscanf(
+        argv[2], "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
+        &my_dest_mac[0], &my_dest_mac[1], &my_dest_mac[2],
+        &my_dest_mac[3], &my_dest_mac[4], &my_dest_mac[5]);
+
+    printf("destMAC:0x%02x:0x%02x:0x%02x:0x%02x:0x%02x:0x%02x\n",
+        my_dest_mac[0], my_dest_mac[1], my_dest_mac[2],
+        my_dest_mac[3], my_dest_mac[4], my_dest_mac[5]);
+
     // Construct the Ethernet header 
     eh->ether_shost[0] = ((uint8_t *)&if_mac.ifr_hwaddr.sa_data)[0];
     eh->ether_shost[1] = ((uint8_t *)&if_mac.ifr_hwaddr.sa_data)[1];
@@ -160,12 +184,12 @@ int main(int argc, char *argv[])
     eh->ether_shost[3] = ((uint8_t *)&if_mac.ifr_hwaddr.sa_data)[3];
     eh->ether_shost[4] = ((uint8_t *)&if_mac.ifr_hwaddr.sa_data)[4];
     eh->ether_shost[5] = ((uint8_t *)&if_mac.ifr_hwaddr.sa_data)[5];
-    eh->ether_dhost[0] = MY_DEST_MAC0;
-    eh->ether_dhost[1] = MY_DEST_MAC1;
-    eh->ether_dhost[2] = MY_DEST_MAC2;
-    eh->ether_dhost[3] = MY_DEST_MAC3;
-    eh->ether_dhost[4] = MY_DEST_MAC4;
-    eh->ether_dhost[5] = MY_DEST_MAC5;
+    eh->ether_dhost[0] = my_dest_mac[0];
+    eh->ether_dhost[1] = my_dest_mac[1];
+    eh->ether_dhost[2] = my_dest_mac[2];
+    eh->ether_dhost[3] = my_dest_mac[3];
+    eh->ether_dhost[4] = my_dest_mac[4];
+    eh->ether_dhost[5] = my_dest_mac[5];
     eh->ether_type = htons(ETH_P_IP);
     tx_len += sizeof(struct ether_header);
 
@@ -224,17 +248,14 @@ int main(int argc, char *argv[])
             //     total_bytes_sent, sentInSlot, quota - sentInSlot);
         }
         // control bandwidth
-        if (total_bytes_sent < bytes2send)
+        gettimeofday(&t_now, NULL);
+        elapsedTime = (t_now.tv_sec - t_start.tv_sec) * 1000000.0 + (t_now.tv_usec - t_start.tv_usec);
+        if (elapsedTime < (slotLength * slot))
         {
-            gettimeofday(&t_now, NULL);
-            elapsedTime = (t_now.tv_sec - t_start.tv_sec) * 1000000.0 + (t_now.tv_usec - t_start.tv_usec);
-            if (elapsedTime < (slotLength * slot))
-            {
-                // printf(
-                //     "sent %d, quota %d, bytes2send %d, usleep %lfus\n",
-                //     total_bytes_sent, quota, bytes2send, slotLength * slot - elapsedTime);
-                usleep((int)(slotLength * slot - elapsedTime));
-            }
+            // printf(
+            //     "sent %d, quota %d, bytes2send %d, usleep %lfus\n",
+            //     total_bytes_sent, quota, bytes2send, slotLength * slot - elapsedTime);
+            usleep((int)(slotLength * slot - elapsedTime));
         }
         sentInSlot = 0;
         ++slot;

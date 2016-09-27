@@ -88,6 +88,19 @@ int main(int argc, char *argv[])
     if (argc > 5)
         sendsize = atoi(argv[5]);
 
+    // adjust slotLength to address packet size issue in the end
+    if ((quota % sendsize) > 0)
+    {
+        // printf("quota:%d,sendsize:%d,slotLength:%d\n", quota, sendsize, slotLength);
+        slotLength = (quota / sendsize + 1) * sendsize / quota * slotLength;
+        quota = (quota / sendsize + 1) * sendsize;
+        // printf("quota:%d,sendsize:%d,slotLength:%d\n", quota, sendsize, slotLength);
+    }
+    else
+    {
+        slotLength = (quota / sendsize) * sendsize / quota * slotLength;
+    }
+
     // get file size (bytes2send)
     if (isNumber(argv[1]))
     {
@@ -163,17 +176,14 @@ int main(int argc, char *argv[])
             //     total_bytes_sent, sentInSlot, quota - sentInSlot);
         }
         // control bandwidth
-        if (total_bytes_sent < bytes2send)
+        gettimeofday(&t_now, NULL);
+        elapsedTime = (t_now.tv_sec - t_start.tv_sec) * 1000000.0 + (t_now.tv_usec - t_start.tv_usec);
+        if (elapsedTime < slotLength * slot)
         {
-            gettimeofday(&t_now, NULL);
-            elapsedTime = (t_now.tv_sec - t_start.tv_sec) * 1000000.0 + (t_now.tv_usec - t_start.tv_usec);
-            if (elapsedTime < slotLength * slot)
-            {
-                // printf(
-                //     "sent %d, quota %d, bytes2send %d, usleep %lfus\n",
-                //     total_bytes_sent, quota, bytes2send, slotLength * slot - elapsedTime);
-                usleep((int)(slotLength * slot - elapsedTime));
-            }
+            // printf(
+            //     "sent %d, quota %d, bytes2send %d, usleep %lfus\n",
+            //     total_bytes_sent, quota, bytes2send, slotLength * slot - elapsedTime);
+            usleep((int)(slotLength * slot - elapsedTime));
         }
         sentInSlot = 0;
         ++slot;
