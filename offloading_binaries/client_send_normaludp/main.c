@@ -2,8 +2,9 @@
  * Initial commit by Yibo @ Jul. 28, 2015
  * Last update by Yanzi @ Sept. 26, 2016
  */
- 
+
 #include <stdio.h>
+#include <math.h>
 #include <string.h>
 #include <arpa/inet.h>
 #include <linux/if_packet.h>
@@ -19,23 +20,8 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <fcntl.h>
-#include <sys/uio.h>
-#include <netinet/tcp.h>
-// #define _GNU_SOURCE         /* See feature_test_macros(7) */
 
-// #define ETH_P_IP    0x0800      /* Internet Protocol packet */
-// #define ETH_ALEN    6       /* from <net/ethernet.h> */
-// #define ETH_P_ALL       0x0003
-
-// #define MY_DEST_MAC0    0xba
-// #define MY_DEST_MAC1    0xf6
-// #define MY_DEST_MAC2    0xb1
-// #define MY_DEST_MAC3    0x71
-// #define MY_DEST_MAC4    0x09
-// #define MY_DEST_MAC5    0x64
- 
-// #define DEFAULT_IF  "lo"
-// #define BUF_SIZ     8192
+#define BUF_SIZ         65536
 
 char isNumber(char number[])
 {
@@ -55,32 +41,32 @@ char isNumber(char number[])
 
 int main(int argc, char *argv[])
 {
-    // defaults
+    // for bandwidth control
     uint slotLength = 10000; // in microseconds, for bandwidth control
     uint quota = 1000000000; // default bytes per slot, default 1GB/slot
     uint sentInSlot = 0, slot = 1;
     uint total_bytes_sent = 0;
-    uint bytes, bytes_sent, bytes_in_pipe;
     // for timing
     double elapsedTime;
     struct timeval t_start, t_end, t_now;
     // for socket
     int fd; // file descriptor of file to send
-    int sockfd; // socket
+    int sockfd; // socket 
+    // char ifName[IFNAMSIZ];
+    char sendbuf[BUF_SIZ];
     struct sockaddr_in servaddr;
+    // struct ether_header *eh = (struct ether_header *) sendbuf;
+    // struct iphdr *iph = (struct iphdr *) (sendbuf + sizeof(struct ether_header));
     // struct sockaddr_ll socket_address;
     // for misc
     int ret;
-    int sendsize = 1460; // 1500 MTU - 20 IPv4 - 20 TCP
+    int sendsize = 1472; // 1500 MTU - 20 IPv4 - 8 UDP
     int bytes2send = 0;
     struct stat st;
-    // create two pipes
-    int filedes[2];
-    ret = pipe(filedes);
 
     if (argc < 4)
     {
-        printf("Usage: %s <bytes2send/file2send> <ip> <port> <[optional] bandwidth (bps)> <[optional] sendsize (bytes)>\n", argv[0]);
+        printf("Usage: %s <bytes2send/file2send> <ip> <port> <[optional] bandwidth (bps)>  <[optional] sendsize (bytes)>\n", argv[0]);
         exit(0);
     }
 
@@ -88,10 +74,10 @@ int main(int argc, char *argv[])
     if (argc > 4)
         quota = atoi(argv[4]) / 8 / (1000000 / slotLength);
 
-    // set sendsize (if larger than 1460 will do packetization (fragmentation))
+    // set sendsize (if larger than 1472 will do packetization (fragmentation) (is this true??))
     if (argc > 5)
         sendsize = atoi(argv[5]);
-    
+
     // adjust slotLength to address packet size issue in the end
     if ((quota % sendsize) > 0)
     {
@@ -131,9 +117,9 @@ int main(int argc, char *argv[])
         bytes2send = st.st_size;
         printf("bytes2send:%d\n", bytes2send);
     }
-    
+
     // bind socket
-    sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    sockfd = socket(AF_INET, SOCK_DGRAM, 0);
     bzero(&servaddr, sizeof(servaddr));
     servaddr.sin_family = AF_INET;
     servaddr.sin_addr.s_addr = inet_addr(argv[2]);
@@ -145,7 +131,7 @@ int main(int argc, char *argv[])
         fprintf(stderr, "! Unable to connect the server.\n");
         exit(1);
     }
-    
+
     // start timing
     gettimeofday(&t_start, NULL);
 
@@ -162,38 +148,19 @@ int main(int argc, char *argv[])
             // printf(
             //     "before: total_bytes_sent %d, sentInSlot %d, quota - sentInSlot %d\n",
             //     total_bytes_sent, sentInSlot, quota - sentInSlot);
-
-            // Splice the data from in_fd into the pipe
-            if ((bytes_sent = splice(fd, NULL, filedes[1], NULL,
-                    quota - sentInSlot, 
-                    SPLICE_F_MORE | SPLICE_F_MOVE)) <= 0) {
-                if (errno == EINTR || errno == EAGAIN) {
-                    // Interrupted system call/try again
-                    // Just skip to the top of the loop and try again
-                    continue;
-                }
-                fprintf(stderr, "! splice error, errno: %d.\n", errno);
-                exit(1);
+            read(fd, sendbuf, (quota - sentInSlot < sendsize) ? (quota - sentInSlot) : sendsize);
+			ret = sendto(
+				sockfd, sendbuf,
+				(quota - sentInSlot < sendsize) ? (quota - sentInSlot) : sendsize,
+				0, (struct sockaddr *)&servaddr, sizeof(servaddr));
+            if (ret <= 0)
+            {
+                fprintf(stderr, "! Fail to send: ret:%d, err:%d; wait for 100us..\n", ret, errno);
+                usleep(100);
+                continue;
             }
-
-            // Splice the data from the pipe into out_fd
-            bytes_in_pipe = bytes_sent;
-            while (bytes_in_pipe > 0) {
-                if ((bytes = splice(filedes[0], NULL, sockfd, NULL, bytes_in_pipe,
-                        SPLICE_F_MORE | SPLICE_F_MOVE)) <= 0) {
-                    if (errno == EINTR || errno == EAGAIN) {
-                        // Interrupted system call/try again
-                        // Just skip to the top of the loop and try again
-                        continue;
-                    }
-                    fprintf(stderr, "! splice error, errno: %d.\n", errno);
-                    exit(1);
-                }
-                bytes_in_pipe -= bytes;
-            }
-
-            total_bytes_sent += bytes_sent;
-            sentInSlot += bytes_sent;
+            total_bytes_sent += ret;
+            sentInSlot += ret;
             // printf(
             //     "after: total_bytes_sent %d, sentInSlot %d, quota - sentInSlot %d\n",
             //     total_bytes_sent, sentInSlot, quota - sentInSlot);
@@ -215,11 +182,12 @@ int main(int argc, char *argv[])
     // end timing
     gettimeofday(&t_end, NULL);
     elapsedTime = (t_end.tv_sec - t_start.tv_sec) + (t_end.tv_usec - t_start.tv_usec) / 1000000.0;
-    printf("duration(s):%lf\nthroughput(bps):%lf\n", elapsedTime, total_bytes_sent * 8 / elapsedTime);
+    printf(
+    	"sent(bytes):%d\nduration(s):%lf\nthroughput(bps):%lf\n",
+    	total_bytes_sent, elapsedTime, total_bytes_sent * 8 / elapsedTime);
     
     close(sockfd);
     close(fd);
     
     return 0;
 }
-

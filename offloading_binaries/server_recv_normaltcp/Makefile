@@ -1,7 +1,8 @@
+#CC = /media/Lucifer/android/lib/android-18-toolchain/bin/arm-linux-androideabi-gcc
 CC = arm-linux-androideabi-gcc
 # CC = gcc
 CFLAGS = -pie -fPIE
-TARGET = c2s_normaltcp_sendfile
+TARGET = server_recv_normaltcp
 
 OBJS = $(patsubst %.c, %.o, $(wildcard *.c))
 HEADERS = $(wildcard *.h)

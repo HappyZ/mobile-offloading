@@ -4,7 +4,6 @@
  */
 
 #include <stdio.h>
-#include <math.h>
 #include <string.h>
 #include <arpa/inet.h>
 #include <linux/if_packet.h>
@@ -21,19 +20,7 @@
 #include <netinet/in.h>
 #include <fcntl.h>
 
-// #define ETH_P_IP        0x0800      /* Internet Protocol packet */
-// #define ETH_ALEN        6       /* from <net/ethernet.h> */
-// #define ETH_P_ALL       0x0003
-
-// #define MY_DEST_MAC0    0xba
-// #define MY_DEST_MAC1    0xf6
-// #define MY_DEST_MAC2    0xb1
-// #define MY_DEST_MAC3    0x71
-// #define MY_DEST_MAC4    0x09
-// #define MY_DEST_MAC5    0x64
- 
-// #define DEFAULT_IF      "wlan0"
-#define BUF_SIZ         65536
+#define BUF_SIZ         4096
 
 char isNumber(char number[])
 {
@@ -53,7 +40,7 @@ char isNumber(char number[])
 
 int main(int argc, char *argv[])
 {
-    // for bandwidth control
+    // defaults
     uint slotLength = 10000; // in microseconds, for bandwidth control
     uint quota = 1000000000; // default bytes per slot, default 1GB/slot
     uint sentInSlot = 0, slot = 1;
@@ -64,44 +51,27 @@ int main(int argc, char *argv[])
     // for socket
     int fd; // file descriptor of file to send
     int sockfd; // socket 
+    // int sendsize = 1488;
     // char ifName[IFNAMSIZ];
     char sendbuf[BUF_SIZ];
     struct sockaddr_in servaddr;
-    // struct ether_header *eh = (struct ether_header *) sendbuf;
-    // struct iphdr *iph = (struct iphdr *) (sendbuf + sizeof(struct ether_header));
+    struct ether_header *eh = (struct ether_header *) sendbuf;
+    struct iphdr *iph = (struct iphdr *) (sendbuf + sizeof(struct ether_header));
     // struct sockaddr_ll socket_address;
     // for misc
     int ret;
-    int sendsize = 1472; // 1500 MTU - 20 IPv4 - 8 UDP
     int bytes2send = 0;
     struct stat st;
 
-    if (argc < 4)
+    if (argc < 2)
     {
-        printf("Usage: %s <bytes2send/file2send> <ip> <port> <[optional] bandwidth (bps)>  <[optional] sendsize (bytes)>\n", argv[0]);
+        printf("Usage: %s <bytes2send/file2send> <[optional] bandwidth (bps)>\n", argv[0]);
         exit(0);
     }
 
     // set bandwidth
-    if (argc > 4)
-        quota = atoi(argv[4]) / 8 / (1000000 / slotLength);
-
-    // set sendsize (if larger than 1472 will do packetization (fragmentation) (is this true??))
-    if (argc > 5)
-        sendsize = atoi(argv[5]);
-
-    // adjust slotLength to address packet size issue in the end
-    if ((quota % sendsize) > 0)
-    {
-        // printf("quota:%d,sendsize:%d,slotLength:%d\n", quota, sendsize, slotLength);
-        slotLength = (quota / sendsize + 1) * sendsize / quota * slotLength;
-        quota = (quota / sendsize + 1) * sendsize;
-        // printf("quota:%d,sendsize:%d,slotLength:%d\n", quota, sendsize, slotLength);
-    }
-    else
-    {
-        slotLength = (quota / sendsize) * sendsize / quota * slotLength;
-    }
+    if (argc > 2)
+        quota = atoi(argv[2]) / 8 / (1000000 / slotLength);
 
     // get file size (bytes2send)
     if (isNumber(argv[1]))
@@ -130,20 +100,6 @@ int main(int argc, char *argv[])
         printf("bytes2send:%d\n", bytes2send);
     }
 
-    // bind socket
-    sockfd = socket(AF_INET, SOCK_DGRAM, 0);
-    bzero(&servaddr, sizeof(servaddr));
-    servaddr.sin_family = AF_INET;
-    servaddr.sin_addr.s_addr = inet_addr(argv[2]);
-    servaddr.sin_port = htons(atoi(argv[3]));
-
-    // connect socket
-    if (connect(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0)
-    {
-        fprintf(stderr, "! Unable to connect the server.\n");
-        exit(1);
-    }
-
     // start timing
     gettimeofday(&t_start, NULL);
 
@@ -160,17 +116,9 @@ int main(int argc, char *argv[])
             // printf(
             //     "before: total_bytes_sent %d, sentInSlot %d, quota - sentInSlot %d\n",
             //     total_bytes_sent, sentInSlot, quota - sentInSlot);
-            read(fd, sendbuf, (quota - sentInSlot < sendsize) ? (quota - sentInSlot) : sendsize);
-			ret = sendto(
-				sockfd, sendbuf,
-				(quota - sentInSlot < sendsize) ? (quota - sentInSlot) : sendsize,
-				0, (struct sockaddr *)&servaddr, sizeof(servaddr));
-            if (ret <= 0)
-            {
-                fprintf(stderr, "! Fail to send: ret:%d, err:%d; wait for 100us..\n", ret, errno);
-                usleep(100);
-                continue;
-            }
+            read(fd, sendbuf, (quota - sentInSlot < BUF_SIZ) ? (quota - sentInSlot) : BUF_SIZ);
+
+            ret = (quota - sentInSlot < BUF_SIZ) ? (quota - sentInSlot) : BUF_SIZ;
             total_bytes_sent += ret;
             sentInSlot += ret;
             // printf(
@@ -178,14 +126,17 @@ int main(int argc, char *argv[])
             //     total_bytes_sent, sentInSlot, quota - sentInSlot);
         }
         // control bandwidth
-        gettimeofday(&t_now, NULL);
-        elapsedTime = (t_now.tv_sec - t_start.tv_sec) * 1000000.0 + (t_now.tv_usec - t_start.tv_usec);
-        if (elapsedTime < slotLength * slot)
+        if (total_bytes_sent < bytes2send)
         {
-            // printf(
-            //     "sent %d, quota %d, bytes2send %d, usleep %lfus\n",
-            //     total_bytes_sent, quota, bytes2send, slotLength * slot - elapsedTime);
-            usleep((int)(slotLength * slot - elapsedTime));
+            gettimeofday(&t_now, NULL);
+            elapsedTime = (t_now.tv_sec - t_start.tv_sec) * 1000000.0 + (t_now.tv_usec - t_start.tv_usec);
+            if (elapsedTime < slotLength * slot)
+            {
+                // printf(
+                //     "sent %d, quota %d, bytes2send %d, usleep %lfus\n",
+                //     total_bytes_sent, quota, bytes2send, slotLength * slot - elapsedTime);
+                usleep((int)(slotLength * slot - elapsedTime));
+            }
         }
         sentInSlot = 0;
         ++slot;
@@ -194,11 +145,8 @@ int main(int argc, char *argv[])
     // end timing
     gettimeofday(&t_end, NULL);
     elapsedTime = (t_end.tv_sec - t_start.tv_sec) + (t_end.tv_usec - t_start.tv_usec) / 1000000.0;
-    printf(
-    	"sent(bytes):%d\nduration(s):%lf\nthroughput(bps):%lf\n",
-    	total_bytes_sent, elapsedTime, total_bytes_sent * 8 / elapsedTime);
+    printf("duration(s):%lf\nthroughput(bps):%lf\n", elapsedTime, total_bytes_sent * 8 / elapsedTime);
     
-    close(sockfd);
     close(fd);
     
     return 0;

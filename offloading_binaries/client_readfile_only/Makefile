@@ -1,7 +1,7 @@
 CC = arm-linux-androideabi-gcc
 # CC = gcc
 CFLAGS = -pie -fPIE
-TARGET = c2s_normaltcp_splice
+TARGET = client_readfile_only
 
 OBJS = $(patsubst %.c, %.o, $(wildcard *.c))
 HEADERS = $(wildcard *.h)

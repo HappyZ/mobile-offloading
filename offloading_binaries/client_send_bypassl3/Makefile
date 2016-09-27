@@ -1,7 +1,7 @@
-#CC = /media/Lucifer/android/lib/android-18-toolchain/bin/arm-linux-androideabi-gcc
 CC = arm-linux-androideabi-gcc
+# CC = gcc
 CFLAGS = -pie -fPIE
-TARGET = TCPReceiver_mobile
+TARGET = client_send_bypassl3
 
 OBJS = $(patsubst %.c, %.o, $(wildcard *.c))
 HEADERS = $(wildcard *.h)

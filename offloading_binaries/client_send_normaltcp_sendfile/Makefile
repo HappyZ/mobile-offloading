@@ -1,7 +1,7 @@
 CC = arm-linux-androideabi-gcc
 # CC = gcc
 CFLAGS = -pie -fPIE
-TARGET = c2s_readfile_only
+TARGET = client_send_normaltcp_sendfile
 
 OBJS = $(patsubst %.c, %.o, $(wildcard *.c))
 HEADERS = $(wildcard *.h)

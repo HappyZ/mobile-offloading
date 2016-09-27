@@ -1,13 +1,6 @@
 /*
  * Initial commit by Yibo @ Jul. 28, 2015
  * Last update by Yanzi @ Sept. 26, 2016
- * This is using sendfile to achieve zero-copy (one copy actually due to lack of driver support).
- *
- * TODO: "Presently (Linux 2.6.9 [and, in fact, as of this writing in June 2010]): in_fd, must
- * correspond to a file which supports mmap()-like operations (i.e., it cannot be a socket);
- * and out_fd must refer to a socket."
- * based on http://blog.superpat.com/2010/06/01/zero-copy-in-linux-with-sendfile-and-splice/.
- * need to double check in newer kernels
  */
  
 #include <stdio.h>
@@ -26,6 +19,8 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <fcntl.h>
+#include <sys/uio.h>
+#include <netinet/tcp.h>
 
 // #define DEFAULT_IF  "lo"
 // #define BUF_SIZ     8192
@@ -53,6 +48,7 @@ int main(int argc, char *argv[])
     uint quota = 1000000000; // default bytes per slot, default 1GB/slot
     uint sentInSlot = 0, slot = 1;
     uint total_bytes_sent = 0;
+    uint bytes, bytes_sent, bytes_in_pipe;
     // for timing
     double elapsedTime;
     struct timeval t_start, t_end, t_now;
@@ -66,6 +62,9 @@ int main(int argc, char *argv[])
     int sendsize = 1460; // 1500 MTU - 20 IPv4 - 20 TCP
     int bytes2send = 0;
     struct stat st;
+    // create two pipes
+    int filedes[2];
+    ret = pipe(filedes);
 
     if (argc < 4)
     {
@@ -80,7 +79,7 @@ int main(int argc, char *argv[])
     // set sendsize (if larger than 1460 will do packetization (fragmentation))
     if (argc > 5)
         sendsize = atoi(argv[5]);
-    
+
     // adjust slotLength to address packet size issue in the end
     if ((quota % sendsize) > 0)
     {
@@ -151,14 +150,38 @@ int main(int argc, char *argv[])
             // printf(
             //     "before: total_bytes_sent %d, sentInSlot %d, quota - sentInSlot %d\n",
             //     total_bytes_sent, sentInSlot, quota - sentInSlot);
-            ret = sendfile(sockfd, fd, (off_t *)&total_bytes_sent, quota - sentInSlot);
-            if (ret <= 0)
-            {
-                fprintf(stderr, "! Fail to send: ret:%d, err:%d; wait for 100us..\n", ret, errno);
-                usleep(100);
-                continue;
+
+            // Splice the data from in_fd into the pipe
+            if ((bytes_sent = splice(fd, NULL, filedes[1], NULL,
+                    quota - sentInSlot, 
+                    SPLICE_F_MORE | SPLICE_F_MOVE)) <= 0) {
+                if (errno == EINTR || errno == EAGAIN) {
+                    // Interrupted system call/try again
+                    // Just skip to the top of the loop and try again
+                    continue;
+                }
+                fprintf(stderr, "! splice error, errno: %d.\n", errno);
+                exit(1);
             }
-            sentInSlot += ret;
+
+            // Splice the data from the pipe into out_fd
+            bytes_in_pipe = bytes_sent;
+            while (bytes_in_pipe > 0) {
+                if ((bytes = splice(filedes[0], NULL, sockfd, NULL, bytes_in_pipe,
+                        SPLICE_F_MORE | SPLICE_F_MOVE)) <= 0) {
+                    if (errno == EINTR || errno == EAGAIN) {
+                        // Interrupted system call/try again
+                        // Just skip to the top of the loop and try again
+                        continue;
+                    }
+                    fprintf(stderr, "! splice error, errno: %d.\n", errno);
+                    exit(1);
+                }
+                bytes_in_pipe -= bytes;
+            }
+
+            total_bytes_sent += bytes_sent;
+            sentInSlot += bytes_sent;
             // printf(
             //     "after: total_bytes_sent %d, sentInSlot %d, quota - sentInSlot %d\n",
             //     total_bytes_sent, sentInSlot, quota - sentInSlot);
