@@ -4,6 +4,7 @@
  */
 
 #include <stdio.h>
+#include <math.h>
 #include <string.h>
 #include <arpa/inet.h>
 #include <linux/if_packet.h>
@@ -52,7 +53,7 @@ char isNumber(char number[])
 
 int main(int argc, char *argv[])
 {
-    // defaults
+    // for bandwidth control
     uint slotLength = 10000; // in microseconds, for bandwidth control
     uint quota = 1000000000; // default bytes per slot, default 1GB/slot
     uint sentInSlot = 0, slot = 1;
@@ -62,7 +63,8 @@ int main(int argc, char *argv[])
     struct timeval t_start, t_end, t_now;
     // for socket
     int fd; // file descriptor of file to send
-    int sockfd; // socket
+    int sockfd; // socket 
+    // char ifName[IFNAMSIZ];
     char sendbuf[BUF_SIZ];
     struct sockaddr_in servaddr;
     // struct ether_header *eh = (struct ether_header *) sendbuf;
@@ -70,13 +72,13 @@ int main(int argc, char *argv[])
     // struct sockaddr_ll socket_address;
     // for misc
     int ret;
-    int sendsize = 1460; // 1500 MTU - 20 IPv4 - 20 TCP
+    int sendsize = 1472; // 1500 MTU - 20 IPv4 - 8 UDP
     int bytes2send = 0;
     struct stat st;
 
     if (argc < 4)
     {
-        printf("Usage: %s <bytes2send/file2send> <ip> <port> <[optional] bandwidth (bps)> <[optional] sendsize (bytes)>\n", argv[0]);
+        printf("Usage: %s <bytes2send/file2send> <ip> <port> <[optional] bandwidth (bps)>  <[optional] sendsize (bytes)>\n", argv[0]);
         exit(0);
     }
 
@@ -84,7 +86,7 @@ int main(int argc, char *argv[])
     if (argc > 4)
         quota = atoi(argv[4]) / 8 / (1000000 / slotLength);
 
-    // set sendsize (if larger than 1460 will do packetization (fragmentation))
+    // set sendsize (if larger than 1472 will do packetization (fragmentation) (is this true??))
     if (argc > 5)
         sendsize = atoi(argv[5]);
 
@@ -116,7 +118,7 @@ int main(int argc, char *argv[])
     }
 
     // bind socket
-    sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    sockfd = socket(AF_INET, SOCK_DGRAM, 0);
     bzero(&servaddr, sizeof(servaddr));
     servaddr.sin_family = AF_INET;
     servaddr.sin_addr.s_addr = inet_addr(argv[2]);
@@ -146,10 +148,10 @@ int main(int argc, char *argv[])
             //     "before: total_bytes_sent %d, sentInSlot %d, quota - sentInSlot %d\n",
             //     total_bytes_sent, sentInSlot, quota - sentInSlot);
             read(fd, sendbuf, (quota - sentInSlot < sendsize) ? (quota - sentInSlot) : sendsize);
-            ret = send(
-                sockfd, sendbuf,
-                (quota - sentInSlot < sendsize) ? (quota - sentInSlot) : sendsize, 0);
-
+			ret = sendto(
+				sockfd, sendbuf,
+				(quota - sentInSlot < sendsize) ? (quota - sentInSlot) : sendsize,
+				0, (struct sockaddr *)&servaddr, sizeof(servaddr));
             if (ret <= 0)
             {
                 fprintf(stderr, "! Fail to send: ret:%d, err:%d; wait for 100us..\n", ret, errno);
@@ -183,8 +185,8 @@ int main(int argc, char *argv[])
     gettimeofday(&t_end, NULL);
     elapsedTime = (t_end.tv_sec - t_start.tv_sec) + (t_end.tv_usec - t_start.tv_usec) / 1000000.0;
     printf(
-        "sent(bytes):%d\nduration(s):%lf\nthroughput(bps):%lf\n",
-        total_bytes_sent, elapsedTime, total_bytes_sent * 8 / elapsedTime);
+    	"sent(bytes):%d\nduration(s):%lf\nthroughput(bps):%lf\n",
+    	total_bytes_sent, elapsedTime, total_bytes_sent * 8 / elapsedTime);
     
     close(sockfd);
     close(fd);

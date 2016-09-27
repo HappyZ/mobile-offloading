@@ -20,19 +20,19 @@
 #include <netinet/in.h>
 #include <fcntl.h>
 
-// #define ETH_P_IP        0x0800      /* Internet Protocol packet */
-// #define ETH_ALEN        6       /* from <net/ethernet.h> */
-// #define ETH_P_ALL       0x0003
+#define ETH_P_IP        0x0800      /* Internet Protocol packet */
+#define ETH_ALEN        6       /* from <net/ethernet.h> */
+#define ETH_P_ALL       0x0003
 
-// #define MY_DEST_MAC0    0xba
-// #define MY_DEST_MAC1    0xf6
-// #define MY_DEST_MAC2    0xb1
-// #define MY_DEST_MAC3    0x71
-// #define MY_DEST_MAC4    0x09
-// #define MY_DEST_MAC5    0x64
+#define MY_DEST_MAC0    0x18
+#define MY_DEST_MAC1    0x03
+#define MY_DEST_MAC2    0x73
+#define MY_DEST_MAC3    0xc8
+#define MY_DEST_MAC4    0x86
+#define MY_DEST_MAC5    0x52
  
-// #define DEFAULT_IF      "wlan0"
-#define BUF_SIZ         65536
+#define DEFAULT_IF      "eth0"
+#define BUF_SIZ         4096
 
 char isNumber(char number[])
 {
@@ -61,32 +61,43 @@ int main(int argc, char *argv[])
     double elapsedTime;
     struct timeval t_start, t_end, t_now;
     // for socket
-    int fd; // file descriptor of file to send
+    int i, j, fd; // file descriptor of file to send
     int sockfd; // socket
+    int tx_len = 0;
     char sendbuf[BUF_SIZ];
+    struct ifreq if_idx;
+    struct ifreq if_mac;
     struct sockaddr_in servaddr;
-    // struct ether_header *eh = (struct ether_header *) sendbuf;
-    // struct iphdr *iph = (struct iphdr *) (sendbuf + sizeof(struct ether_header));
-    // struct sockaddr_ll socket_address;
+    struct ether_header *eh = (struct ether_header *) sendbuf;
+    struct iphdr *iph = (struct iphdr *) (sendbuf + sizeof(struct ether_header));
+    struct sockaddr_ll socket_address;
+    char ifName[IFNAMSIZ];
     // for misc
     int ret;
-    int sendsize = 1460; // 1500 MTU - 20 IPv4 - 20 TCP
+    int sendsize = 1500; // 1500 MTU (raw socket)
     int bytes2send = 0;
     struct stat st;
 
-    if (argc < 4)
+    if (argc < 2)
     {
-        printf("Usage: %s <bytes2send/file2send> <ip> <port> <[optional] bandwidth (bps)> <[optional] sendsize (bytes)>\n", argv[0]);
+        printf("Usage: %s <bytes2send/file2send> <[optional] bandwidth (bps)> <[optional] sendsize (bytes)> <[optional] interface>\n", argv[0]);
         exit(0);
     }
 
     // set bandwidth
-    if (argc > 4)
-        quota = atoi(argv[4]) / 8 / (1000000 / slotLength);
+    if (argc > 2)
+        quota = atoi(argv[2]) / 8 / (1000000 / slotLength);
 
     // set sendsize (if larger than 1460 will do packetization (fragmentation))
-    if (argc > 5)
-        sendsize = atoi(argv[5]);
+    if (argc > 3)
+        sendsize = atoi(argv[3]);
+
+    //  set interface
+    if (argc > 4) {
+        strcpy(ifName, argv[4]);
+    } else {
+        strcpy(ifName, DEFAULT_IF);
+    }
 
     // get file size (bytes2send)
     if (isNumber(argv[1]))
@@ -115,22 +126,66 @@ int main(int argc, char *argv[])
         printf("bytes2send:%d\n", bytes2send);
     }
 
-    // bind socket
-    sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    bzero(&servaddr, sizeof(servaddr));
-    servaddr.sin_family = AF_INET;
-    servaddr.sin_addr.s_addr = inet_addr(argv[2]);
-    servaddr.sin_port = htons(atoi(argv[3]));
-
-    // connect socket
-    if (connect(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0)
+    if ((sockfd = socket(AF_PACKET, SOCK_RAW, IPPROTO_RAW)) == -1)
     {
-        fprintf(stderr, "! Unable to connect the server.\n");
+        fprintf(stderr, "! raw socket error.\n");
         exit(1);
     }
 
+    // Get the index of the interface to send on
+    memset(&if_idx, 0, sizeof(struct ifreq));
+    strncpy(if_idx.ifr_name, ifName, IFNAMSIZ - 1);
+    if (ioctl(sockfd, SIOCGIFINDEX, &if_idx) < 0)
+    {
+        fprintf(stderr, "! SIOCGIFINDEX error. Check permission.\n");
+        exit(1);
+    }
+
+    // Get the MAC address of the interface to send on
+    memset(&if_mac, 0, sizeof(struct ifreq));
+    strncpy(if_mac.ifr_name, ifName, IFNAMSIZ - 1);
+    if (ioctl(sockfd, SIOCGIFHWADDR, &if_mac) < 0)
+    {
+        fprintf(stderr, "! SIOCGIFHWADDR error. Check permission.\n");
+        exit(1);
+    }
+
+    // Set mem
+    memset(sendbuf, 0, BUF_SIZ);
+
+    // Construct the Ethernet header 
+    eh->ether_shost[0] = ((uint8_t *)&if_mac.ifr_hwaddr.sa_data)[0];
+    eh->ether_shost[1] = ((uint8_t *)&if_mac.ifr_hwaddr.sa_data)[1];
+    eh->ether_shost[2] = ((uint8_t *)&if_mac.ifr_hwaddr.sa_data)[2];
+    eh->ether_shost[3] = ((uint8_t *)&if_mac.ifr_hwaddr.sa_data)[3];
+    eh->ether_shost[4] = ((uint8_t *)&if_mac.ifr_hwaddr.sa_data)[4];
+    eh->ether_shost[5] = ((uint8_t *)&if_mac.ifr_hwaddr.sa_data)[5];
+    eh->ether_dhost[0] = MY_DEST_MAC0;
+    eh->ether_dhost[1] = MY_DEST_MAC1;
+    eh->ether_dhost[2] = MY_DEST_MAC2;
+    eh->ether_dhost[3] = MY_DEST_MAC3;
+    eh->ether_dhost[4] = MY_DEST_MAC4;
+    eh->ether_dhost[5] = MY_DEST_MAC5;
+    eh->ether_type = htons(ETH_P_IP);
+    tx_len += sizeof(struct ether_header);
+
+    // Index of the network device
+    socket_address.sll_ifindex = if_idx.ifr_ifindex;
+
+    // Address length
+    socket_address.sll_halen = ETH_ALEN;
+
+    // Destination MAC
+    socket_address.sll_addr[0] = MY_DEST_MAC0;
+    socket_address.sll_addr[1] = MY_DEST_MAC1;
+    socket_address.sll_addr[2] = MY_DEST_MAC2;
+    socket_address.sll_addr[3] = MY_DEST_MAC3;
+    socket_address.sll_addr[4] = MY_DEST_MAC4;
+    socket_address.sll_addr[5] = MY_DEST_MAC5;
+
     // start timing
     gettimeofday(&t_start, NULL);
+    read(fd, sendbuf + tx_len, sendsize - tx_len);
 
     // start to send
     while (total_bytes_sent < bytes2send)
@@ -145,10 +200,16 @@ int main(int argc, char *argv[])
             // printf(
             //     "before: total_bytes_sent %d, sentInSlot %d, quota - sentInSlot %d\n",
             //     total_bytes_sent, sentInSlot, quota - sentInSlot);
-            read(fd, sendbuf, (quota - sentInSlot < sendsize) ? (quota - sentInSlot) : sendsize);
-            ret = send(
+            read(
+                fd, sendbuf + tx_len,
+                (
+                    ((quota - sentInSlot) < (sendsize - tx_len)) ?
+                    (quota - sentInSlot) : (sendsize - tx_len))
+                );
+            ret = sendto(
                 sockfd, sendbuf,
-                (quota - sentInSlot < sendsize) ? (quota - sentInSlot) : sendsize, 0);
+                (quota - sentInSlot < sendsize) ? (quota - sentInSlot) : sendsize,
+                MSG_DONTWAIT, (struct sockaddr*)&socket_address, sizeof(struct sockaddr_ll));
 
             if (ret <= 0)
             {
@@ -167,7 +228,7 @@ int main(int argc, char *argv[])
         {
             gettimeofday(&t_now, NULL);
             elapsedTime = (t_now.tv_sec - t_start.tv_sec) * 1000000.0 + (t_now.tv_usec - t_start.tv_usec);
-            if (elapsedTime < slotLength * slot)
+            if (elapsedTime < (slotLength * slot))
             {
                 // printf(
                 //     "sent %d, quota %d, bytes2send %d, usleep %lfus\n",

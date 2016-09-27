@@ -69,13 +69,11 @@ int main(int argc, char *argv[])
     struct timeval t_start, t_end, t_now;
     // for socket
     int fd; // file descriptor of file to send
-    int sockfd; // socket 
-    // int sendsize = 1488;
-    // char ifName[IFNAMSIZ];
+    int sockfd; // socket
     struct sockaddr_in servaddr;
     // struct sockaddr_ll socket_address;
     // for misc
-    int i, j, ret;
+    int ret;
     int bytes2send = 0;
     struct stat st;
 
@@ -159,14 +157,17 @@ int main(int argc, char *argv[])
             //     total_bytes_sent, sentInSlot, quota - sentInSlot);
         }
         // control bandwidth
-        gettimeofday(&t_now, NULL);
-        elapsedTime = (t_now.tv_sec - t_start.tv_sec) * 1000000.0 + (t_now.tv_usec - t_start.tv_usec);
-        if (elapsedTime < slotLength * slot)
+        if (total_bytes_sent < bytes2send)
         {
-            // printf(
-            //     "sent %d, quota %d, bytes2send %d, usleep %lfus\n",
-            //     total_bytes_sent, quota, bytes2send, slotLength * slot - elapsedTime);
-            usleep((int)(slotLength * slot - elapsedTime));
+            gettimeofday(&t_now, NULL);
+            elapsedTime = (t_now.tv_sec - t_start.tv_sec) * 1000000.0 + (t_now.tv_usec - t_start.tv_usec);
+            if (elapsedTime < slotLength * slot)
+            {
+                // printf(
+                //     "sent %d, quota %d, bytes2send %d, usleep %lfus\n",
+                //     total_bytes_sent, quota, bytes2send, slotLength * slot - elapsedTime);
+                usleep((int)(slotLength * slot - elapsedTime));
+            }
         }
         sentInSlot = 0;
         ++slot;
