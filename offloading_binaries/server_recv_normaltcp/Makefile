@@ -1,22 +1,18 @@
 #CC = /media/Lucifer/android/lib/android-18-toolchain/bin/arm-linux-androideabi-gcc
-CC = arm-linux-androideabi-gcc
-# CC = gcc
+CC1 = arm-linux-androideabi-gcc
+CC2 = gcc
 CFLAGS = -pie -fPIE
-TARGET = server_recv_normaltcp
+TARGET1 = server_m_recv_normaltcp
+TARGET2 = server_recv_normaltcp
 
-OBJS = $(patsubst %.c, %.o, $(wildcard *.c))
-HEADERS = $(wildcard *.h)
+all: $(TARGET1) $(TARGET2)
 
-all: $(TARGET)
+$(TARGET1): main.c
+	$(CC1) main.c -Wall $(CFLAGS) -o $@
 
-%.o: %.c $(HEADERS)
-	$(CC) $(CFLAGS) -c $< -o $@
-
-.PRECIOUS: $(TARGET) $(OBJS)
-
-$(TARGET): $(OBJS)
-	$(CC) $(OBJS) -Wall $(CFLAGS) -o $@
+$(TARGET2): main.c
+	$(CC2) main.c -Wall $(CFLAGS) -o $@
 
 clean:
-	-rm -f *.o
-	-rm -f $(TARGET)
+	-rm -f $(TARGET1)
+	-rm -f $(TARGET2)

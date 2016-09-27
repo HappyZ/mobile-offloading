@@ -1,17 +1,16 @@
 /*
- *  This program is free software: you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation, either version 3 of the License, or
- *  (at your option) any later version.
+ * Initial commit by Yibo @ Jul. 28, 2015
+ * Last update by Yanzi @ Sept. 26, 2016
  */
- 
-#include <arpa/inet.h>
-#include <linux/if_packet.h>
+
 #include <stdio.h>
 #include <string.h>
+#include <arpa/inet.h>
+#include <linux/if_packet.h>
 #include <stdlib.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <net/if.h>
 #include <netinet/ether.h>
 #include <sys/sendfile.h>
@@ -19,103 +18,132 @@
 #include <sys/time.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <fcntl.h>
+#include <unistd.h>
 #include <signal.h>
+#include <ctype.h>
 
-#define ETH_P_IP	0x0800		/* Internet Protocol packet	*/
-#define ETH_ALEN	6		/* from <net/ethernet.h> */
-#define ETH_P_ALL       0x0003
+#define BUF_SIZ         65536
 
-#define MY_DEST_MAC0	0xba
-#define MY_DEST_MAC1	0xf6
-#define MY_DEST_MAC2	0xb1
-#define MY_DEST_MAC3	0x71
-#define MY_DEST_MAC4	0x09
-#define MY_DEST_MAC5	0x64
- 
-#define DEFAULT_IF	"wlan0"
-#define BUF_SIZ		8192
- 
+char isNumber(char number[])
+{
+    int i = 0;
+
+    //checking for negative numbers
+    if (number[0] == '-')
+        i = 1;
+    for (; number[i] != 0; i++)
+    {
+        //if (number[i] > '9' || number[i] < '0')
+        if (!isdigit(number[i]))
+            return 0;
+    }
+    return 1;
+}
+
 int main(int argc, char *argv[])
 {
-	int slotLength = 10000; // in microseconds
-	int quota = 1000000000; // Bytes per slot, default 1GB/slot
-	int sentInSlot = 0, slot = 1;
-	double elapsedTime;
-	
-	struct iovec iov;
-	int sockfd, listenfd;
-	struct ifreq if_idx;
-	struct ifreq if_mac;
-	int tx_len = 0;
-	char sendbuf[BUF_SIZ];
-	struct ether_header *eh = (struct ether_header *) sendbuf;
-	struct iphdr *iph = (struct iphdr *) (sendbuf + sizeof(struct ether_header));
-	struct sockaddr_ll socket_address;
-	char ifName[IFNAMSIZ];
-	int i, j, ret, sendsize=1488, packet_num=1000000000, offset = 0, port;
-	int fd;                    /* file descriptor for file to send */
-	struct sockaddr_in servaddr,cliaddr;
-	socklen_t clilen;
-	struct timeval t_start,t_end,t_now;
-    	
-	signal(SIGPIPE, SIG_IGN);
-	
-	if (argc > 1)
-		port  = atoi(argv[1]);
-	else
-	{
-		printf("Usage: TCPServer port rate");
-		exit(1);
+    // defaults
+    uint total_bytes_recv = 0;
+    // for timing
+    double elapsedTime;
+    struct timeval t_start, t_end;
+    // for socket
+    int fd = 0; // file descriptor of file to write (receive)
+    int port;
+    int recvsize = 4096;
+    int sockfd, listenfd; // fd
+    char recvbuf[BUF_SIZ];
+    struct sockaddr_in servaddr, cliaddr;
+    socklen_t clilen;
+    // for misc
+    int ret;
+    unsigned char listenOnce = 0;
+
+    signal(SIGPIPE, SIG_IGN);
+    
+    if (argc < 2)
+    {
+        printf("Usage: %s <port> <[optional] listenOnce ([0]/1)> <[optional] filepath>\n", argv[0]);
+        exit(0);
     }
-	
-	if (argc > 2)
-		packet_num = atoi(argv[2]);
-	
-	
-	listenfd = socket(AF_INET, SOCK_STREAM, 0);
 
-	
-	bzero(&servaddr,sizeof(servaddr));
-	servaddr.sin_family = AF_INET;
-	servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
-	servaddr.sin_port = htons(port);
-	bind(listenfd, (struct sockaddr *)&servaddr, sizeof(servaddr));
-	listen(listenfd, 1);
-	
-	for(;;)
-	{
-		clilen=sizeof(cliaddr);
-		sockfd = accept(listenfd,(struct sockaddr *)&cliaddr, &clilen);
-		printf("Accepted.\n");
-		//setsockopt(sd, SOL_SOCKET, SO_NOSIGPIPE, (void *)&set, sizeof(int));
+    port  = atoi(argv[1]);
 
-//		fd = open("/data/local/tmp/bigfile_w", O_WRONLY | O_CREAT | O_TRUNC);
-		offset = 0;
-		
-		if (fd == -1) {
-			fprintf(stderr, "unable to open the file.\n");
-			exit(1);
-		}
-		
-		gettimeofday(&t_start, NULL);
-		while (offset < packet_num)
-		{
-			ret = recv(sockfd, sendbuf, 4096, 0);
-			if (ret <= 0)
-			{
-				printf("recv fail\n");
-				usleep(100);
-				break;
-			}
-//			write(fd, sendbuf, ret);
-			offset += ret;
-		}
-		close(sockfd);
-		gettimeofday(&t_end, NULL);
-		printf("%lf\n", (t_end.tv_sec-t_start.tv_sec)*1000.0+(t_end.tv_usec-t_start.tv_usec)/1000.0);
-	}
-    
-    close(fd);
-    
-	return 0;
+    if (argc > 2)
+        listenOnce = 1;
+
+    // listen to socket
+    listenfd = socket(AF_INET, SOCK_STREAM, 0);
+    // bind socket and listen
+    bzero(&servaddr, sizeof(servaddr));
+    servaddr.sin_family = AF_INET;
+    servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
+    servaddr.sin_port = htons(port);
+    bind(listenfd, (struct sockaddr *)&servaddr, sizeof(servaddr));
+    listen(listenfd, 1);
+
+    // infinity loop to listen
+    for (;;)
+    {
+        clilen = sizeof(cliaddr);
+
+        // wait for one client and accept it once found
+        sockfd = accept(listenfd, (struct sockaddr *)&cliaddr, &clilen);
+        printf("Accepted client at %s\n", inet_ntoa(cliaddr.sin_addr));
+
+        // clear total_bytes_recv to 0
+        total_bytes_recv = 0;
+
+        // if instrument to write to a file
+        if (argc > 3)
+        {
+            fd = open(argv[3], O_WRONLY | O_CREAT | O_TRUNC);
+            if (fd == -1) {
+                fprintf(stderr, "! Unable to open file %s.\n", argv[2]);
+                close(sockfd);
+                if (listenOnce)
+                    break;
+                continue; // skip and listen to a new one
+            }
+        }
+
+        // start timing
+        gettimeofday(&t_start, NULL);
+
+        // start to receive
+        for (;;)
+        {
+            ret = recv(sockfd, recvbuf, recvsize, 0);
+            if (ret <= 0)
+            {
+                if (errno == 0)
+                {
+                    if (argc > 3)
+                        close(fd);
+                    break;
+                }
+                fprintf(stderr, "! Fail to recv: ret:%d, err:%d; quiting..\n", ret, errno);
+                exit(1);
+            }
+            if (argc > 3)
+                write(fd, recvbuf, ret);
+            total_bytes_recv += ret;
+            // printf("total_bytes_recv %d\n", total_bytes_recv);
+        }
+
+        // end timing
+        gettimeofday(&t_end, NULL);
+        elapsedTime = (t_end.tv_sec - t_start.tv_sec) + (t_end.tv_usec - t_start.tv_usec) / 1000000.0;
+        printf(
+            "recv(bytes):%d\nduration(s):%lf\nthroughput(bps):%lf\n",
+            total_bytes_recv, elapsedTime, total_bytes_recv * 8 / elapsedTime);
+
+        close(sockfd);
+
+        if (listenOnce)
+            break;
+    }
+
+    return 0;
 }
