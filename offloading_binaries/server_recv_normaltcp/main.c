@@ -1,6 +1,6 @@
 /*
  * Initial commit by Yibo @ Jul. 28, 2015
- * Last update by Yanzi @ Sept. 26, 2016
+ * Last update by Yanzi @ Sept. 27, 2016
  */
 
 #include <stdio.h>
@@ -21,25 +21,8 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <signal.h>
-#include <ctype.h>
 
 #define BUF_SIZ         65536
-
-char isNumber(char number[])
-{
-    int i = 0;
-
-    //checking for negative numbers
-    if (number[0] == '-')
-        i = 1;
-    for (; number[i] != 0; i++)
-    {
-        //if (number[i] > '9' || number[i] < '0')
-        if (!isdigit(number[i]))
-            return 0;
-    }
-    return 1;
-}
 
 int main(int argc, char *argv[])
 {
@@ -71,7 +54,7 @@ int main(int argc, char *argv[])
     port  = atoi(argv[1]);
 
     if (argc > 2)
-        listenOnce = 1;
+        listenOnce = atoi(argv[2]);
 
     // listen to socket
     listenfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -144,6 +127,8 @@ int main(int argc, char *argv[])
         if (listenOnce)
             break;
     }
+
+    close(listenfd);
 
     return 0;
 }
