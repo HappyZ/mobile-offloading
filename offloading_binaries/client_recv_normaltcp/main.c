@@ -67,7 +67,7 @@ int main(int argc, char *argv[])
     {
         fd = open(argv[4], O_WRONLY | O_CREAT | O_TRUNC);
         if (fd == -1) {
-            fprintf(stderr, "! Unable to open file %s.\n", argv[2]);
+            fprintf(stderr, "! Unable to open file %s.\n", argv[4]);
             close(sockfd);
             exit(1);
         }

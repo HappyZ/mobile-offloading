@@ -31,7 +31,7 @@
 #define MY_DEST_MAC4    0x86
 #define MY_DEST_MAC5    0x52
  
-#define DEFAULT_IF      "eth0"
+#define DEFAULT_IF      "wlan0"
 #define BUF_SIZ         4096
 
 char isNumber(char number[])
@@ -169,7 +169,7 @@ int main(int argc, char *argv[])
         &my_dest_mac[0], &my_dest_mac[1], &my_dest_mac[2],
         &my_dest_mac[3], &my_dest_mac[4], &my_dest_mac[5]);
 
-    printf("destMAC:0x%02x:0x%02x:0x%02x:0x%02x:0x%02x:0x%02x\n",
+    printf("destMAC:%02x:%02x:%02x:%02x:%02x:%02x\n",
         my_dest_mac[0], my_dest_mac[1], my_dest_mac[2],
         my_dest_mac[3], my_dest_mac[4], my_dest_mac[5]);
 

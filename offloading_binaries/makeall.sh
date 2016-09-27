@@ -10,6 +10,8 @@ cd client_send_normaltcp && make
 cd ../
 cd client_readfile_only && make
 cd ../
+cd client_recv_normaltcp_splice && make
+cd ../
 cd client_recv_normaltcp && make
 cd ../
 cd client_recv_normaludp && make
