@@ -15,6 +15,8 @@ cd ../
 # client receiver
 cd client_recv_normaltcp_splice && make
 cd ../
+cd client_recv_bypassl3 && make
+cd ../
 cd client_recv_normaltcp && make
 cd ../
 cd client_recv_normaludp && make
