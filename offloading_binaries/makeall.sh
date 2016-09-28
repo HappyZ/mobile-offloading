@@ -22,6 +22,8 @@ cd ../
 # server sender
 cd server_send_normaltcp && make
 cd ../
+cd server_send_normaludp && make
+cd ../
 # server receiver
 cd server_recv_normaltcp && make
 cd ../
