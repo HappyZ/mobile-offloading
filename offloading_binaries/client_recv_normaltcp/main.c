@@ -52,8 +52,8 @@ int main(int argc, char *argv[])
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
     bzero(&servaddr, sizeof(servaddr));
     servaddr.sin_family = AF_INET;
-    servaddr.sin_addr.s_addr = inet_addr(argv[2]);
-    servaddr.sin_port = htons(atoi(argv[3]));
+    servaddr.sin_addr.s_addr = inet_addr(argv[1]);
+    servaddr.sin_port = htons(atoi(argv[2]));
 
     // connect socket
     if (connect(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0)
@@ -84,8 +84,8 @@ int main(int argc, char *argv[])
 
         if (ret <= 0)
         {
-            if (errno == 0)
-            {
+            if (errno == 0 || errno == 2)
+            {  
                 if (argc > 4)
                     close(fd);
                 break;
@@ -109,8 +109,6 @@ int main(int argc, char *argv[])
         total_bytes_recv, elapsedTime, total_bytes_recv * 8 / elapsedTime);
     
     close(sockfd);
-    if (argc > 4)
-        close(fd);
     
     return 0;
 }
