@@ -110,7 +110,7 @@ int main(int argc, char *argv[])
 
     // Get the index of the interface to receive from
     memset(&ifopts, 0, sizeof(struct ifreq));
-    strncpy(ifopts.ifr_name, ifName, IFNAMSIZ-1);
+    strncpy(ifopts.ifr_name, ifName, IFNAMSIZ - 1);
     if (ioctl(sockfd, SIOCGIFFLAGS, &ifopts) < 0)
     {
         fprintf(stderr, "! SIOCGIFFLAGS error. Check permission.\n");
@@ -129,7 +129,7 @@ int main(int argc, char *argv[])
         exit(EXIT_FAILURE);
     }
     
-    if (setsockopt(sockfd, SOL_SOCKET, SO_BINDTODEVICE, ifName, IFNAMSIZ-1) == -1)  {
+    if (setsockopt(sockfd, SOL_SOCKET, SO_BINDTODEVICE, ifName, IFNAMSIZ - 1) == -1)  {
         fprintf(stderr, "! SO_BINDTODEVICE error. \n");
         close(sockfd);
         exit(EXIT_FAILURE);
