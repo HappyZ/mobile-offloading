@@ -89,8 +89,10 @@ public class SSLogger extends Service {
                     ssStuff = (mTime + " wifi " + wifiRSS + "\n").getBytes();
                 try {
                     if (isRunning) {
-                        if (wifiRSS != 0)
+                        if (wifiRSS != 0) {
+//                            Log.d(TAG, "Wrote stuff: " + ssStuff);
                             os_ss.write(ssStuff);
+                        }
                         os_cpu.write(cpuStuff);
                         if (MainActivity.wifiDriverPID != -1)
                             os_cpuWiFiDriverPID.write(cpuWiFiDriverPIDStuff);
@@ -164,9 +166,11 @@ public class SSLogger extends Service {
         }
         // create folder
         File mDir = new File(MainActivity.outFolderPath);
-        mDir.mkdir();
-        if (wifiRSS != 0)
+//        mDir.mkdir();
+        if (wifiRSS != 0) {
+//            Log.d(TAG, "wifi rss is not 0");
             ssFileName = MainActivity.btn_click_time.concat(".ss");
+        }
         cpuFileName = MainActivity.btn_click_time.concat(".cpuRaw");
         if (MainActivity.wifiDriverPID != -1)
             cpuWiFiDriverPIDFileName = MainActivity.btn_click_time.concat(".cpuPID");
@@ -177,8 +181,11 @@ public class SSLogger extends Service {
         if (MainActivity.isLoggingAppSelf)
             cpuAppSelfFileName = MainActivity.btn_click_time.concat(".cpuAppSelf");
         try {
-            if (wifiRSS != 0)
-                os_ss = new FileOutputStream(new File(mDir, ssFileName));
+            if (wifiRSS != 0) {
+//                Log.d(TAG, "create os_ss handler");
+                File tmp = new File(mDir, ssFileName);
+                os_ss = new FileOutputStream(tmp);
+            }
             os_cpu = new FileOutputStream(new File(mDir, cpuFileName));
             if (MainActivity.wifiDriverPID != -1)
                 os_cpuWiFiDriverPID = new FileOutputStream(new File(mDir, cpuWiFiDriverPIDFileName));

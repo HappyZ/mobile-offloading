@@ -30,8 +30,11 @@ import java.util.Date;
 
 public class MainActivity extends Activity {
     // unchanged stuff
-    protected static final String sshlinklab = "ssh linklab@hotcrp.cs.ucsb.edu -i /data/.ssh/id_rsa -o StrictHostKeyChecking=no";
-    protected static final String sshlinklablocal = "ssh linklab@128.111.68.220 -i /data/.ssh/id_rsa -o StrictHostKeyChecking=no";
+    protected static final String remoteIP = "128.111.68.220";
+    protected static final String sshlinklab = "ssh linklab@hotcrp.cs.ucsb.edu"
+            + " -i /data/.ssh/id_rsa -o StrictHostKeyChecking=no";
+    protected static final String sshlinklablocal = "ssh linklab@" + remoteIP
+            + " -i /data/.ssh/id_rsa -o StrictHostKeyChecking=no";
     protected static final String udpserver_pathport = "~/mobileRDMABeach/UDPServer 32000 ";
     protected static final String binaryFolderPath = "/data/local/tmp/";
     protected static final String binary_tcpdump = "tcpdump";
@@ -62,24 +65,25 @@ public class MainActivity extends Activity {
     protected static double reportedFinishTime = 0.0;
     protected static int repeatCounts = 3;
     protected static int bytes2send = 10*oneMB; // default 10MB
-    protected static int currentBandwidth = 20000000; // bytes per sec, default unlimited (not for loopback)
+    protected static int currentBandwidth = -1; // bps, default is -1, indicating unlimited
     protected static TextView txt_results;
     protected static Handler myHandler;
-    protected static String RXportNum = "4445";
+    protected static String myInetIP = "";
+    protected static String RXportNum = "4444";
     protected static String outFolderPath;
     protected static String btn_click_time;
     protected static String tcpdumpInterface = "wlan0";
-    protected static String binary_TX_Normal = "normal";
-    protected static String binary_TX_NormalUDP = "normal_udp";
-    protected static String binary_TX_Sendfile = "sendfile";
-    protected static String binary_TX_Splice = "splice";
-    protected static String binary_TX_RawNormal = "bypassl3";
+    protected static String binary_TX_Normal;
+    protected static String binary_TX_NormalUDP;
+    protected static String binary_TX_Sendfile;
+    protected static String binary_TX_Splice;
+    protected static String binary_TX_RawNormal;
     protected static final String binary_TX_RawSplice = "";
-    protected static String binary_RX_Normal = "normal_recv";
-    protected static String binary_RX_NormalUDP = "normal_udp_recv";
+    protected static String binary_RX_Normal;
+    protected static String binary_RX_NormalUDP;
     protected static final String binary_RX_Sendfile = "";
-    protected static String binary_RX_Splice = "splice_recv";
-    protected static String binary_RX_RawNormal = "bypassl3_recv";
+    protected static String binary_RX_Splice;
+    protected static String binary_RX_RawNormal;
     protected static boolean isUsingWifi = true;
     protected static boolean isRunning_TX_Normal = false;
     protected static boolean isRunning_TX_NormalUDP = false;
@@ -99,7 +103,8 @@ public class MainActivity extends Activity {
      */
     protected boolean isServiceRunning(Class<?> serviceClass) {
         ActivityManager manager = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
-        for (ActivityManager.RunningServiceInfo service : manager.getRunningServices(Integer.MAX_VALUE)) {
+        for (ActivityManager.RunningServiceInfo service : manager.getRunningServices(
+                Integer.MAX_VALUE)) {
             if (serviceClass.getName().equals(service.service.getClassName())) {
                 return true;
             }
@@ -119,45 +124,61 @@ public class MainActivity extends Activity {
         }
     }
 
+    private void killAllBinaries() {
+        try {
+            Runtime.getRuntime().exec("su -c killall -9 " + binary_TX_Normal).waitFor();
+            Runtime.getRuntime().exec("su -c killall -9 " + binary_TX_NormalUDP).waitFor();
+            Runtime.getRuntime().exec("su -c killall -9 " + binary_TX_Sendfile).waitFor();
+            Runtime.getRuntime().exec("su -c killall -9 " + binary_TX_Splice).waitFor();
+            Runtime.getRuntime().exec("su -c killall -9 " + binary_TX_RawNormal).waitFor();
+            Runtime.getRuntime().exec("su -c killall -9 " + binary_RX_Normal).waitFor();
+            Runtime.getRuntime().exec("su -c killall -9 " + binary_RX_NormalUDP).waitFor();
+            Runtime.getRuntime().exec("su -c killall -9 " + binary_RX_Splice).waitFor();
+            Runtime.getRuntime().exec("su -c killall -9 " + binary_RX_RawNormal).waitFor();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
     private boolean checkBinaryFilesExist() {
         String missingFiles = "";
         if (!Utilities.fileExist(binaryFolderPath + binary_tcpdump))
             missingFiles += binary_tcpdump;
         if (!Utilities.fileExist(binaryFolderPath + binary_TX_Normal))
             missingFiles += " " + binary_TX_Normal;
-        if (!Utilities.fileExist(binaryFolderPath + binary_TX_Normal + "_lo"))
-            missingFiles += " " + binary_TX_Normal + "_lo";
         if (!Utilities.fileExist(binaryFolderPath + binary_TX_NormalUDP))
             missingFiles += " " + binary_TX_NormalUDP;
-        if (!Utilities.fileExist(binaryFolderPath + binary_TX_NormalUDP + "_lo"))
-            missingFiles += " " + binary_TX_NormalUDP + "_lo";
         if (!Utilities.fileExist(binaryFolderPath + binary_TX_Sendfile))
             missingFiles += " " + binary_TX_Sendfile;
-        if (!Utilities.fileExist(binaryFolderPath + binary_TX_Sendfile + "_lo"))
-            missingFiles += " " + binary_TX_Sendfile + "_lo";
         if (!Utilities.fileExist(binaryFolderPath + binary_TX_Splice))
             missingFiles += " " + binary_TX_Splice;
         if (!Utilities.fileExist(binaryFolderPath + binary_TX_RawNormal))
             missingFiles += " " + binary_TX_RawNormal;
-        if (!Utilities.fileExist(binaryFolderPath + binary_TX_RawNormal + "_lo"))
-            missingFiles += " " + binary_TX_RawNormal + "_lo";
         if (!Utilities.fileExist(binaryFolderPath + binary_RX_Normal))
             missingFiles += " " + binary_RX_Normal;
-        if (!Utilities.fileExist(binaryFolderPath + binary_RX_Normal + "_lo"))
-            missingFiles += " " + binary_RX_Normal + "_lo";
         if (!Utilities.fileExist(binaryFolderPath + binary_RX_NormalUDP))
             missingFiles += " " + binary_RX_NormalUDP;
-        if (!Utilities.fileExist(binaryFolderPath + binary_RX_NormalUDP + "_lo"))
-            missingFiles += " " + binary_RX_NormalUDP + "_lo";
         if (!Utilities.fileExist(binaryFolderPath + binary_RX_Splice))
             missingFiles += " " + binary_RX_Splice;
-        if (!Utilities.fileExist(binaryFolderPath + binary_RX_Splice + "_lo"))
-            missingFiles += " " + binary_RX_Splice + "_lo";
         if (!Utilities.fileExist(binaryFolderPath + binary_RX_RawNormal))
             missingFiles += " " + binary_RX_RawNormal;
-        if (!Utilities.fileExist(binaryFolderPath + binary_RX_RawNormal + "_lo"))
-            missingFiles += " " + binary_RX_RawNormal + "_lo";
-
+        if (!Utilities.fileExist(binaryFolderPath + "bigfile")) {
+            try {
+                Runtime.getRuntime().exec(
+                        "dd if=/dev/zero of="
+                                + binaryFolderPath + "bigfile"
+                                + " count=1 bs=1 seek=$((2 * 1024 * 1024 * 1024 - 1))").waitFor();
+                Runtime.getRuntime().exec(
+                        "chmod 755 " + binaryFolderPath + "bigfile");
+            } catch (IOException e) {
+                e.printStackTrace();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            Toast.makeText(this, "Created a 2Gbits big file", Toast.LENGTH_LONG).show();
+        }
         if (!missingFiles.equals("")) {
             final String mFiles = missingFiles;
             myHandler.post(new Runnable() {
@@ -183,6 +204,7 @@ public class MainActivity extends Activity {
     protected void startRecording(boolean myflag) {
         final boolean flagRecv = myflag;
         final ArrayList<Integer> selectedItems = new ArrayList<>();
+
         AlertDialog.Builder adb = new AlertDialog.Builder(MainActivity.this);
         adb.setMultiChoiceItems(existedItems, null, new DialogInterface.OnMultiChoiceClickListener() {
             @Override
@@ -198,12 +220,14 @@ public class MainActivity extends Activity {
                 }
             }
         });
+
         adb.setPositiveButton("Continue", new DialogInterface.OnClickListener() {
             //            Process su = null;
             @Override
             public void onClick(DialogInterface dialog, int which) {
                 if (selectedItems.size() < 1) {
-                    Toast.makeText(MainActivity.this, "Nothing is selected", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(MainActivity.this, "Nothing is selected", Toast.LENGTH_SHORT)
+                            .show();
                     return;
                 }
                 final ArrayList<Integer> selectedItemsThrpt = new ArrayList<>();
@@ -222,18 +246,21 @@ public class MainActivity extends Activity {
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
                         if (selectedItemsThrpt.size() < 1) {
-                            Toast.makeText(MainActivity.this, "Nothing is selected", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(
+                                    MainActivity.this, "Nothing is selected", Toast.LENGTH_SHORT)
+                                    .show();
                             return;
                         }
                         if (isVerbose) {
                             Log.d(TAG, "selected variations " + selectedItemsThrpt);
                         }
-                        Utilities.estimateTime(repeatCounts, selectedItems.size(), bytes2send, selectedItemsThrpt);
+                        Utilities.estimateTime(
+                                repeatCounts, selectedItems.size(), bytes2send, selectedItemsThrpt);
 
                         // power management
                         PowerManager powerManager = (PowerManager) getSystemService(POWER_SERVICE);
-                        final PowerManager.WakeLock wakelock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK,
-                                "MyWakelockTag");
+                        final PowerManager.WakeLock wakelock = powerManager.newWakeLock(
+                                PowerManager.PARTIAL_WAKE_LOCK, "MyWakelockTag");
 
                         new Thread(new Runnable() {
                             @Override
@@ -241,14 +268,16 @@ public class MainActivity extends Activity {
                                 String[] commd = new String[3];
                                 commd[0] = "su";
                                 commd[1] = "&&";
-//                                wakelock.acquire();
+                                wakelock.acquire();
                                 // change screen brightness to 0
 //                                Settings.System.putInt(MainActivity.this.getContentResolver(),
 //                                        Settings.System.SCREEN_BRIGHTNESS, 0);
-//                                final WindowManager.LayoutParams lp = getWindow().getAttributes();
-//                                lp.screenBrightness = 0.0f;// 100 / 100.0f;
+                                final WindowManager.LayoutParams lp = getWindow().getAttributes();
+                                lp.screenBrightness = 0.0f;// 100 / 100.0f;
                                 try {
-                                    Runtime.getRuntime().exec("su -c echo 0 > /sys/class/lcd/panel/lcd_power").waitFor();
+                                    Runtime.getRuntime().exec(
+                                            "su -c echo 0 > /sys/class/lcd/panel/lcd_power")
+                                            .waitFor();
                                 } catch (InterruptedException e) {
                                     e.printStackTrace();
                                 } catch (IOException e) {
@@ -263,41 +292,28 @@ public class MainActivity extends Activity {
                                 });
                                 // prepare
                                 try {
-                                    Runtime.getRuntime().exec("su -c killall -9 normal").waitFor();
-                                    Runtime.getRuntime().exec("su -c killall -9 normal_lo").waitFor();
-                                    Runtime.getRuntime().exec("su -c killall -9 normal_udp").waitFor();
-                                    Runtime.getRuntime().exec("su -c killall -9 normal_udp_lo").waitFor();
-                                    Runtime.getRuntime().exec("su -c killall -9 sendfile").waitFor();
-                                    Runtime.getRuntime().exec("su -c killall -9 sendfile_lo").waitFor();
-                                    Runtime.getRuntime().exec("su -c killall -9 splice").waitFor();
-                                    Runtime.getRuntime().exec("su -c killall -9 splice_lo").waitFor();
-                                    Runtime.getRuntime().exec("su -c killall -9 bypassl3").waitFor();
-                                    Runtime.getRuntime().exec("su -c killall -9 bypassl3_lo").waitFor();
-                                    Runtime.getRuntime().exec("su -c killall -9 normal_recv").waitFor();
-                                    Runtime.getRuntime().exec("su -c killall -9 normal_recv_lo").waitFor();
-                                    Runtime.getRuntime().exec("su -c killall -9 normal_udp_recv").waitFor();
-                                    Runtime.getRuntime().exec("su -c killall -9 normal_udp_recv_lo").waitFor();
-                                    Runtime.getRuntime().exec("su -c killall -9 splice_recv").waitFor();
-                                    Runtime.getRuntime().exec("su -c killall -9 splice_recv_lo").waitFor();
-                                    Runtime.getRuntime().exec("su -c killall -9 bypassl3_recv").waitFor();
-                                    Runtime.getRuntime().exec("su -c killall -9 bypassl3_recv_lo").waitFor();
-                                    Runtime.getRuntime().exec("su -c killall -9 tcpdump").waitFor();
-                                    Runtime.getRuntime().exec("su -c killall -9 TCPReceiver_mobile").waitFor();
-                                    Runtime.getRuntime().exec("su -c killall -9 TCPSender_mobile").waitFor();
-                                    Runtime.getRuntime().exec("su -c killall -9 UDPServer_mobile").waitFor();
-                                    if (isLocal) {
-                                        if (flagRecv)
-                                            Runtime.getRuntime().exec("su && /data/local/tmp/Run_for_Download.sh").waitFor();
-                                        else
-                                            Runtime.getRuntime().exec("su && /data/local/tmp/Run_for_Upload.sh").waitFor();
-                                    } else {
-                                        myHandler.post(new Runnable() {
-                                            @Override
-                                            public void run() {
-                                                MainActivity.txt_results.append("In case you forget, remember to run " + ((flagRecv) ? "Run_for_Download.sh" : "Run_for_Upload.sh") + "\n");
-                                            }
-                                        });
-                                    }
+                                    killAllBinaries();
+                                    Runtime.getRuntime().exec(
+                                            "su -c killall -9 " + binary_tcpdump).waitFor();
+                                    Runtime.getRuntime().exec(
+                                            "su -c killall -9 TCPReceiver_mobile").waitFor();
+                                    Runtime.getRuntime().exec(
+                                            "su -c killall -9 TCPSender_mobile").waitFor();
+                                    Runtime.getRuntime().exec(
+                                            "su -c killall -9 UDPServer_mobile").waitFor();
+//                                    if (isLocal) {
+//                                        if (flagRecv)
+//                                            Runtime.getRuntime().exec("su && /data/local/tmp/Run_for_Download.sh").waitFor();
+//                                        else
+//                                            Runtime.getRuntime().exec("su && /data/local/tmp/Run_for_Upload.sh").waitFor();
+//                                    } else {
+//                                        myHandler.post(new Runnable() {
+//                                            @Override
+//                                            public void run() {
+//                                                MainActivity.txt_results.append("In case you forget, remember to run " + ((flagRecv) ? "Run_for_Download.sh" : "Run_for_Upload.sh") + "\n");
+//                                            }
+//                                        });
+//                                    }
                                 } catch (InterruptedException e) {
                                     e.printStackTrace();
                                 } catch (IOException e) {
@@ -307,7 +323,7 @@ public class MainActivity extends Activity {
                                 for (int k = 0; k < selectedItemsThrpt.size(); ++k) {
                                     int myI = selectedItemsThrpt.get(k);
                                     currentBandwidth = Utilities.findCorrespondingThrpt(myI);
-                                    RXportNum = Integer.toString(4445 - myI + 24);
+//                                    RXportNum = Integer.toString(4445 - myI + 24);
                                     if (isVerbose) {
                                         Log.d(TAG, "bandwidth is set to " + currentBandwidth
                                                 + "\nRXportNum is set to " + RXportNum);
@@ -319,7 +335,8 @@ public class MainActivity extends Activity {
                                         Runtime.getRuntime().exec(commd).waitFor();
                                         commd[2] = "mkdir -p";
                                         for (int i = 0; i < selectedItems.size(); ++i) {
-                                            commd[2] += " " + outFolderPath + "/" + existedItems[selectedItems.get(i)];
+                                            commd[2] += " " + outFolderPath + "/"
+                                                    + existedItems[selectedItems.get(i)];
                                         }
                                         Runtime.getRuntime().exec(commd).waitFor();
                                         Thread.sleep(1000);
@@ -460,19 +477,25 @@ public class MainActivity extends Activity {
                                         }
                                         // parse and zip it
                                         for (int i = 0; i < selectedItems.size(); ++i) {
-                                            if (Utilities.parseCPUforFolder((String) existedItems[selectedItems.get(i)])) {
-                                                String tarName = ((flagRecv) ? "download_" : "upload_")
+                                            if (Utilities.parseCPUforFolder(
+                                                    (String) existedItems[selectedItems.get(i)])) {
+                                                String tarName = (
+                                                        (flagRecv) ? "download_" : "upload_")
                                                         + existedItems[selectedItems.get(i)] + "_"
-                                                        + (bytes2send / 1024) + "KB_" + repeatCounts + "repeats_thrpt_"
+                                                        + (bytes2send / 1024) + "KB_"
+                                                        + repeatCounts + "repeats_thrpt_"
                                                         + (currentBandwidth / 1000000.0) + "MBps_"
-                                                        + new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date())
+                                                        + new SimpleDateFormat("yyyyMMdd_HHmmss")
+                                                            .format(new Date())
                                                         + ".tar.gz";
                                                 commd[2] = "cd " + outFolderPath + "/"
                                                         + existedItems[selectedItems.get(i)]
-                                                        + " && busybox tar -czf ../" + tarName + " *";
+                                                        + " && busybox tar -czf ../"
+                                                        + tarName + " *";
                                                 Runtime.getRuntime().exec(commd).waitFor();
                                             } else {
-                                                final CharSequence failedFolderName = existedItems[selectedItems.get(i)];
+                                                final CharSequence failedFolderName =
+                                                        existedItems[selectedItems.get(i)];
                                                 myHandler.post(new Runnable() {
                                                     @Override
                                                     public void run() {
@@ -489,23 +512,26 @@ public class MainActivity extends Activity {
                                         e.printStackTrace();
                                     }
                                 }
-//                                wakelock.release();
                                 // change screen brightness back
+                                wakelock.release();
 //                                Settings.System.putInt(MainActivity.this.getContentResolver(),
 //                                        Settings.System.SCREEN_BRIGHTNESS, 200);
-//                                lp.screenBrightness = 50;// 50 / 100.0f;
+                                lp.screenBrightness = 50;// 50 / 100.0f;
                                 try {
-                                    Runtime.getRuntime().exec("su -c echo 1 > /sys/class/lcd/panel/lcd_power").waitFor();
+                                    Runtime.getRuntime().exec(
+                                            "su -c echo 1 > /sys/class/lcd/panel/lcd_power")
+                                            .waitFor();
                                 } catch (InterruptedException e) {
                                     e.printStackTrace();
                                 } catch (IOException e) {
                                     e.printStackTrace();
                                 }
+                                // msg indicating all done
                                 myHandler.post(new Runnable() {
                                     @Override
                                     public void run() {
                                         txt_results.append("All Done\n");
-//                                        getWindow().setAttributes(lp);
+                                        getWindow().setAttributes(lp);
                                     }
                                 });
                             }
@@ -527,13 +553,26 @@ public class MainActivity extends Activity {
         // must have root privilege in order to run
         try {
             Runtime.getRuntime().exec("su");
+            Toast.makeText(MainActivity.this, "Remember to silent SuperUser", Toast.LENGTH_SHORT)
+                    .show();
         } catch (Throwable e) {
             Toast.makeText(this, R.string.warn_root, Toast.LENGTH_LONG).show();
         }
+        // must have storage permission
+        Utilities.verifyStoragePermissions(this);
         // handler that updates the ui at main thread
         // it's used in sslogger thus will be modded in receiver activity also
         // do not modify this
         myHandler = new Handler();
+        // sslogger intent
+        intentSSLogger = new Intent(this, SSLogger.class);
+        // grab WiFi service and check if wifi is enabled
+        wm = (WifiManager) this.getSystemService(WIFI_SERVICE);
+        isUsingWifi = (wm.isWifiEnabled()) ? true : false;
+        if (isUsingWifi) {
+            myInetIP = Utilities.getInetIP(true);
+        }
+        // predefined selections
         existedItems = new CharSequence[] {
                 "Socket_Normal", "Socket_NormalUDP", "Socket_Sendfile",
                 "Socket_Splice", "RawSocket_Normal"
@@ -548,22 +587,24 @@ public class MainActivity extends Activity {
                 "95MB", "100MB",                                                    // 41-42
                 "11MB", "13MB"                                                      // 43-44
         };
-        intentSSLogger = new Intent(this, SSLogger.class);
-        wm = (WifiManager) this.getSystemService(WIFI_SERVICE);
-        // assignments
-        binary_TX_Normal = "normal";
-        binary_TX_NormalUDP = "normal_udp";
-        binary_TX_Sendfile = "sendfile";
-        binary_TX_RawNormal = "bypassl3";
-        binary_TX_Splice = "splice";
-        binary_RX_Normal = "normal_recv";
-        binary_RX_NormalUDP = "normal_udp_recv";
-        binary_RX_Splice = "splice_recv";
-        binary_RX_RawNormal = "bypassl3_recv";
+        // binary executables to run
+        binary_TX_Normal = "client_send_normaltcp";
+        binary_TX_NormalUDP = "client_send_normaludp";
+        binary_TX_Sendfile = "client_send_normaltcp_sendfile";
+        binary_TX_RawNormal = "client_send_bypassl3";
+        binary_TX_Splice = "client_send_normaltcp_splice";
+        binary_RX_Normal = "client_recv_normaltcp";
+        binary_RX_NormalUDP = "client_recv_normaludp";
+        binary_RX_Splice = "client_recv_normaltcp_splice";
+        binary_RX_RawNormal = "client_recv_bypassl3";
+        // get number of cores
         coreNum = Utilities.getNumCores();
+        // output folder for SSLogger
         outFolderPath = Environment.getExternalStorageDirectory().getAbsolutePath() + "/SSLogger";
-        isUsingWifi = (wm.isWifiEnabled())?true:false;
-        // find view elements
+        if (!Utilities.dirExist(outFolderPath, true)) {
+            Toast.makeText(this, "Cannot create folder!!!", Toast.LENGTH_LONG).show();
+        }
+        // elements in the page
         txt_results = (TextView) findViewById(R.id.txt_results);
         btn_startTransmit = (Button) findViewById(R.id.btn_startTransmit);
         btn_startReceive = (Button) findViewById(R.id.btn_startReceive);
@@ -574,8 +615,11 @@ public class MainActivity extends Activity {
         btn_setLogFreq = (Button) findViewById(R.id.btn_setLogFreq);
         btn_clearStatus = (Button) findViewById(R.id.btn_clearStatus);
         if (coreNum > 2) {
-            txt_results.append("Only support 2 cores now! Contact Yanzi to add "+coreNum+" cores support!\n");
+            txt_results.append(
+                    "Only support 2 cores now! Contact Yanzi to add "
+                            + coreNum + " cores support!\n");
         }
+        // TODO: remember to add more than 2 core support
         txt_results.append(isUsingWifi?getString(R.string.stat_wifion):getString(R.string.stat_wifioff));
         // click listener
         btn_startTransmit.setOnClickListener(new View.OnClickListener() {
@@ -701,7 +745,8 @@ public class MainActivity extends Activity {
                         } else {
                             tcpdumpInterface = ((String) mTmp[which]).replace("Current: ", "");
                             isUsingTCPDump = true;
-                            Toast.makeText(MainActivity.this, "TCPDump interface is changed to " + tcpdumpInterface, Toast.LENGTH_SHORT).show();
+                            Toast.makeText(MainActivity.this, "TCPDump interface is changed to "
+                                    + tcpdumpInterface, Toast.LENGTH_SHORT).show();
                             if (isVerbose) {
                                 Log.d(TAG, "TCPDump interface is set to " + tcpdumpInterface);
                             }
@@ -714,8 +759,13 @@ public class MainActivity extends Activity {
         btn_setOthers.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                CharSequence[] items = {"Verbose Mode", "Only Run Locally", "CPULog (Per Proc)", "CPULog (WiFi Driver)", "CPULog (This App)", "CPULog (TCPDump)", "Force on CPU0"};
-                boolean[] checkedItems = {isVerbose, isLocal, isLoggingPerProcPID, (wifiDriverPID!=-1), isLoggingAppSelf, isLoggingTCPDump, isForcingCPU0};
+                CharSequence[] items = {
+                        "Verbose Mode", "Only Run Locally", "CPULog (Per Proc)",
+                        "CPULog (WiFi Driver)", "CPULog (This App)", "CPULog (TCPDump)",
+                        "Force on CPU0"};
+                boolean[] checkedItems = {
+                        isVerbose, isLocal, isLoggingPerProcPID, (wifiDriverPID!=-1),
+                        isLoggingAppSelf, isLoggingTCPDump, isForcingCPU0};
                 AlertDialog.Builder adb = new AlertDialog.Builder(MainActivity.this);
                 adb.setMultiChoiceItems(items, checkedItems, new DialogInterface.OnMultiChoiceClickListener() {
                     @Override
@@ -723,48 +773,71 @@ public class MainActivity extends Activity {
                         switch (which) {
                             case 0:
                                 isVerbose = isChecked;
-                                Toast.makeText(MainActivity.this, "Set to be " + (isVerbose ? "verbose" : "NOT verbose"), Toast.LENGTH_SHORT).show();
+                                Toast.makeText(MainActivity.this, "Set to be " +
+                                        (isVerbose ? "verbose" : "NOT verbose"),
+                                        Toast.LENGTH_SHORT).show();
                                 break;
                             case 1:
                                 isLocal = isChecked;
-                                binary_TX_Normal = isLocal ? "normal_lo" : "normal";
-                                binary_TX_NormalUDP = isLocal ? "normal_udp_lo" : "normal_udp";
-                                binary_TX_Sendfile = isLocal ? "sendfile_lo" : "sendfile";
-                                binary_TX_Splice = isLocal ? "splice_lo" : "splice";
-                                binary_TX_RawNormal = isLocal ? "bypassl3_lo" : "bypassl3";
-                                binary_RX_Normal = isLocal ? "normal_recv_lo" : "normal_recv";
-                                binary_RX_NormalUDP = isLocal ? "normal_udp_recv_lo" : "normal_udp_recv";
-                                binary_RX_Splice = isLocal ? "splice_recv_lo" : "splice_recv";
-                                binary_RX_RawNormal = isLocal ? "bypassl3_recv_lo" : "bypassl3_recv";
+//                                binary_TX_Normal = isLocal ? "normal_lo" : "normal";
+//                                binary_TX_NormalUDP = isLocal ? "normal_udp_lo" : "normal_udp";
+//                                binary_TX_Sendfile = isLocal ? "sendfile_lo" : "sendfile";
+//                                binary_TX_Splice = isLocal ? "splice_lo" : "splice";
+//                                binary_TX_RawNormal = isLocal ? "bypassl3_lo" : "bypassl3";
+//                                binary_RX_Normal = isLocal ? "normal_recv_lo" : "normal_recv";
+//                                binary_RX_NormalUDP =
+//                                        isLocal ? "normal_udp_recv_lo" : "normal_udp_recv";
+//                                binary_RX_Splice = isLocal ? "splice_recv_lo" : "splice_recv";
+//                                binary_RX_RawNormal =
+//                                        isLocal ? "bypassl3_recv_lo" : "bypassl3_recv";
                                 if (isLocal) {
                                     isUsingTCPDump = false;
-                                    Toast.makeText(MainActivity.this, "Remember to set IP to 192.168.1.15\n" +
-                                            "Will start TCPSdr/Rcvr locally\ntcpdump disabled", Toast.LENGTH_LONG).show();
+                                    Toast.makeText(MainActivity.this,
+                                            "Remember to set IP to 192.168.1.15\n"
+                                                    + "Will start locally\n"
+                                                    + "tcpdump disabled", Toast.LENGTH_LONG).show();
                                 } else {
                                     isUsingTCPDump = true;
                                     tcpdumpInterface = "wlan0";
-                                    Toast.makeText(MainActivity.this, "Back to original\ntcpdump enabled to wlan0", Toast.LENGTH_LONG).show();
+                                    Toast.makeText(MainActivity.this,
+                                            "Back to original\ntcpdump enabled to wlan0",
+                                            Toast.LENGTH_LONG).show();
                                 }
                                 break;
                             case 2:
                                 isLoggingPerProcPID = isChecked;
-                                Toast.makeText(MainActivity.this, isLoggingPerProcPID?"Will log per process cpu":"Will NOT log per process cpu", Toast.LENGTH_SHORT).show();
+                                Toast.makeText(MainActivity.this,
+                                        isLoggingPerProcPID ?
+                                                "Will log cpu/process" : "cpu/process disabled",
+                                        Toast.LENGTH_SHORT).show();
                                 break;
                             case 3:
-                                wifiDriverPID = isChecked?Utilities.getMyPID("dhd_dpc", true):-1;
-                                Toast.makeText(MainActivity.this, (wifiDriverPID!=-1)?"Will log wifi driver cpu":"Will NOT log wifi driver cpu", Toast.LENGTH_SHORT).show();
+                                wifiDriverPID = isChecked ?
+                                        Utilities.getMyPID("dhd_dpc", true) : -1;
+                                Toast.makeText(MainActivity.this,
+                                        (wifiDriverPID != -1) ?
+                                                "Will log wifi driver cpu" : "wifi driver cpu disabled",
+                                        Toast.LENGTH_SHORT).show();
                                 break;
                             case 4:
                                 isLoggingAppSelf = isChecked;
-                                Toast.makeText(MainActivity.this, isLoggingAppSelf?"Will log app itself cpu":"Will NOT log app itself cpu", Toast.LENGTH_SHORT).show();
+                                Toast.makeText(MainActivity.this,
+                                        isLoggingAppSelf ?
+                                                "Will log app cpu" : "Will NOT log app cpu",
+                                        Toast.LENGTH_SHORT).show();
                                 break;
                             case 5:
                                 isLoggingTCPDump = isChecked;
-                                Toast.makeText(MainActivity.this, isLoggingTCPDump?"Will log tcpdump cpu":"Will NOT log tcpdump cpu", Toast.LENGTH_SHORT).show();
+                                Toast.makeText(MainActivity.this,
+                                        isLoggingTCPDump ?
+                                                "Will log tcpdump cpu" : "Will NOT log tcpdump cpu",
+                                        Toast.LENGTH_SHORT).show();
                                 break;
                             case 6:
                                 isForcingCPU0 = isChecked;
-                                Toast.makeText(MainActivity.this, (isForcingCPU0?"Force running on cpu 0":"Will run on any cpu"), Toast.LENGTH_SHORT).show();
+                                Toast.makeText(MainActivity.this,
+                                        (isForcingCPU0 ? "Force on cpu 0" : "Will run on any cpu"),
+                                        Toast.LENGTH_SHORT).show();
                                 break;
                         }
                     }
@@ -820,7 +893,8 @@ public class MainActivity extends Activity {
                             myHandler.post(new Runnable() {
                                 @Override
                                 public void run() {
-                                    MainActivity.txt_results.append("time_wait_for is set to " + time_wait_for + "ms\n");
+                                    MainActivity.txt_results.append(
+                                            "time_wait_for is set to " + time_wait_for + "ms\n");
                                 }
                             });
                             Log.d(TAG, "time_wait_for is set to " + time_wait_for + "ms");

@@ -1,6 +1,5 @@
 <resources>
     <string name="app_name">Offloading Demo</string>
-    <string name="txt_configs">Configs →</string>
     <string name="btn_setbytes">Set\nBytes</string>
     <string name="btn_setrepeat">Set\nRepeats</string>
     <string name="btn_setuptcpdump">Setup\nTCPDump</string>
