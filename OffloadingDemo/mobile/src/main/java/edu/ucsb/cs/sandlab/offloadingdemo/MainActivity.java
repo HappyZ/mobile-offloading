@@ -31,6 +31,7 @@ import java.util.Date;
 public class MainActivity extends Activity {
     // unchanged stuff
     protected static final String remoteIP = "128.111.68.220";
+    protected static final String remoteMAC = "18:03:73:c8:86:52";
     protected static final String sshlinklab = "ssh linklab@hotcrp.cs.ucsb.edu"
             + " -i /data/.ssh/id_rsa -o StrictHostKeyChecking=no";
     protected static final String sshlinklablocal = "ssh linklab@" + remoteIP
@@ -64,11 +65,12 @@ public class MainActivity extends Activity {
     protected static int UDPfinishTime = 0;
     protected static double reportedFinishTime = 0.0;
     protected static int repeatCounts = 3;
-    protected static int bytes2send = 10*oneMB; // default 10MB
+    protected static int bytes2send = 10 * oneMB; // default 10MB
     protected static int currentBandwidth = -1; // bps, default is -1, indicating unlimited
     protected static TextView txt_results;
     protected static Handler myHandler;
     protected static String myInetIP = "";
+    protected static String myMAC = "";
     protected static String RXportNum = "4444";
     protected static String outFolderPath;
     protected static String btn_click_time;
@@ -469,7 +471,7 @@ public class MainActivity extends Activity {
                                                 commd[2] = "cd " + outFolderPath + " && mv *" + btn_click_time
                                                         + "* " + existedItems[selectedItems.get(j)] + "/";
                                                 Runtime.getRuntime().exec(commd).waitFor();
-                                                Log.d(TAG, "Finished " + (currentBandwidth / 1000000.0) + "MBps, "
+                                                Log.d(TAG, "Finished " + (currentBandwidth / 1000000.0) + "Mbps, "
                                                         + i + "th repeat on " + existedItems[selectedItems.get(j)]
                                                         + ", t="+reportedFinishTime+"ms");
                                                 Thread.sleep(5000);
@@ -569,23 +571,22 @@ public class MainActivity extends Activity {
         // grab WiFi service and check if wifi is enabled
         wm = (WifiManager) this.getSystemService(WIFI_SERVICE);
         isUsingWifi = (wm.isWifiEnabled()) ? true : false;
-        if (isUsingWifi) {
-            myInetIP = Utilities.getInetIP(true);
-        }
+        Utilities.getSelfIdentity(tcpdumpInterface, true);
         // predefined selections
         existedItems = new CharSequence[] {
                 "Socket_Normal", "Socket_NormalUDP", "Socket_Sendfile",
                 "Socket_Splice", "RawSocket_Normal"
         };
         existedItemsThrpt = new CharSequence[]{
-                "50KB", "100KB", "250KB", "0.5MB", "0.75MB", "1MB", "1.5MB", "2MB", // 0-7
-                "2.5MB", "3MB", "3.5MB", "4MB", "4.5MB", "5MB", "5.5MB", "6MB",     // 8-15
-                "6.5MB", "7MB", "7.5MB", "8MB", "8.5MB", "9MB", "9.5MB", "10MB",    // 16-23
-                "Unlimited",                                                        // 24
-                "15MB", "20MB", "25MB", "30MB", "35MB", "40MB", "45MB", "50MB",     // 25-32
-                "55MB", "60MB", "65MB", "70MB", "75MB", "80MB", "85MB", "90MB",     // 33-40
-                "95MB", "100MB",                                                    // 41-42
-                "11MB", "13MB"                                                      // 43-44
+                "800Mbps", "760Mbps", "720Mbps", "680Mbps", "640Mbps", "600Mbps", "560Mbps",// 0-6
+                "520Mbps", "480Mbps", "440Mbps", "400Mbps", "360Mbps", "320Mbps", "280Mbps",// 7-13
+                "240Mbps", "200Mbps", "160Mbps", "120Mbps", "80Mbps",                       // 14-18
+                "76Mbps", "72Mbps", "68Mbps", "64Mbps", "60Mbps", "56Mbps", "52Mbps",       // 19-25
+                "48Mbps", "44Mbps", "40Mbps", "36Mbps", "32Mbps", "28Mbps", "24Mbps",       // 26-32
+                "20Mbps", "16Mbps", "12Mbps", "8Mbps",                                      // 33-36
+                "6Mbps", "5Mbps", "4Mbps", "3Mbps", "2Mbps", "1Mbps",                       // 37-42
+                "800Kbps", "600Kbps", "400Kbps", "200Kbps",                                 // 43-46
+                "Unlimited",                                                                // 47
         };
         // binary executables to run
         binary_TX_Normal = "client_send_normaltcp";
@@ -750,6 +751,8 @@ public class MainActivity extends Activity {
                             if (isVerbose) {
                                 Log.d(TAG, "TCPDump interface is set to " + tcpdumpInterface);
                             }
+                            // based on the selected interface, get corresponding IP and MAC address
+                            Utilities.getSelfIdentity(tcpdumpInterface, true);
                         }
                     }
                 });
@@ -779,21 +782,10 @@ public class MainActivity extends Activity {
                                 break;
                             case 1:
                                 isLocal = isChecked;
-//                                binary_TX_Normal = isLocal ? "normal_lo" : "normal";
-//                                binary_TX_NormalUDP = isLocal ? "normal_udp_lo" : "normal_udp";
-//                                binary_TX_Sendfile = isLocal ? "sendfile_lo" : "sendfile";
-//                                binary_TX_Splice = isLocal ? "splice_lo" : "splice";
-//                                binary_TX_RawNormal = isLocal ? "bypassl3_lo" : "bypassl3";
-//                                binary_RX_Normal = isLocal ? "normal_recv_lo" : "normal_recv";
-//                                binary_RX_NormalUDP =
-//                                        isLocal ? "normal_udp_recv_lo" : "normal_udp_recv";
-//                                binary_RX_Splice = isLocal ? "splice_recv_lo" : "splice_recv";
-//                                binary_RX_RawNormal =
-//                                        isLocal ? "bypassl3_recv_lo" : "bypassl3_recv";
                                 if (isLocal) {
                                     isUsingTCPDump = false;
-                                    Toast.makeText(MainActivity.this,
-                                            "Remember to set IP to 192.168.1.15\n"
+                                    Toast.makeText(MainActivity.this, ""
+//                                            "Remember to set IP to 192.168.1.15\n"
                                                     + "Will start locally\n"
                                                     + "tcpdump disabled", Toast.LENGTH_LONG).show();
                                 } else {

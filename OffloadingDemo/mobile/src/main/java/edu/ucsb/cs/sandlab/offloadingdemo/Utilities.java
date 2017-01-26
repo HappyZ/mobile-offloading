@@ -16,11 +16,13 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
+import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
+import java.util.Enumeration;
 import java.util.List;
 
 /**
@@ -36,10 +38,9 @@ public class Utilities {
     };
 
     /**
+     * Android 6.0 + required
      * Checks if the app has permission to write to device storage
-     *
      * If the app does not has permission then the user will be prompted to grant permissions
-     *
      * @param activity
      */
     public static void verifyStoragePermissions(Activity activity) {
@@ -47,8 +48,8 @@ public class Utilities {
         int permission = ActivityCompat.checkSelfPermission(
                 activity, Manifest.permission.WRITE_EXTERNAL_STORAGE);
 
+        // We don't have permission so prompt the user
         if (permission != PackageManager.PERMISSION_GRANTED) {
-            // We don't have permission so prompt the user
             ActivityCompat.requestPermissions(
                     activity,
                     PERMISSIONS_STORAGE,
@@ -71,35 +72,58 @@ public class Utilities {
     }
 
     /**
-     * get the ip address
-     * @return str
+     * get the ip and mac addresses
      */
-    protected static String getInetIP(boolean useIPv4) {
+    protected static void getSelfIdentity(String interface_name, boolean useIPv4) {
         try {
-            List<NetworkInterface> interfaces = Collections.list(
-                    NetworkInterface.getNetworkInterfaces());
-            for (NetworkInterface intf : interfaces) {
-                List<InetAddress> addrs = Collections.list(intf.getInetAddresses());
-                for (InetAddress addr : addrs) {
-                    if (!addr.isLoopbackAddress()) {
-                        String sAddr = addr.getHostAddress();
-                        //boolean isIPv4 = InetAddressUtils.isIPv4Address(sAddr);
-                        boolean isIPv4 = sAddr.indexOf(':')<0;
+            Enumeration<NetworkInterface> networks =
+                    NetworkInterface.getNetworkInterfaces();
 
+            while (networks.hasMoreElements()) {
+                NetworkInterface network = networks.nextElement();
+
+                // check if the interface matches the desired one
+                String name = network.getDisplayName();
+                if (!name.equals(interface_name))
+                    continue;
+
+                // get the ip address
+                Enumeration<InetAddress> inetAddresses = network.getInetAddresses();
+                while (inetAddresses.hasMoreElements()) {
+                    InetAddress inetAddress = inetAddresses.nextElement();
+                    if (!inetAddress.isLoopbackAddress()) {
+                        String sAddr = inetAddress.getHostAddress();
+                        boolean isIPv4 = sAddr.indexOf(':') < 0;
+                        // check if we only want ipv4
                         if (useIPv4) {
                             if (isIPv4)
-                                return sAddr;
+                                MainActivity.myInetIP = sAddr;
                         } else {
                             if (!isIPv4) {
                                 int delim = sAddr.indexOf('%'); // drop ip6 zone suffix
-                                return delim<0 ? sAddr.toUpperCase() : sAddr.substring(0, delim).toUpperCase();
+                                MainActivity.myInetIP =
+                                        (delim < 0) ? sAddr.toUpperCase() : sAddr.substring(
+                                            0, delim).toUpperCase();
                             }
                         }
                     }
                 }
+
+                // get the mac address
+                byte[] mac = network.getHardwareAddress();
+
+                if (mac != null) {
+                    StringBuilder sb = new StringBuilder();
+                    for (int i = 0; i < mac.length; i++) {
+                        sb.append(String.format("%02X%s", mac[i],
+                                (i < mac.length - 1) ? ":" : ""));
+                    }
+                    MainActivity.myMAC = sb.toString();
+                }
             }
-        } catch (Exception ex) { } // for now eat exceptions
-        return "";
+        } catch (SocketException e) {
+            e.printStackTrace();
+        }
     }
 
     /**
@@ -332,21 +356,20 @@ public class Utilities {
         return true;
     }
 
+    /**
+     * Translate the selection index into throughput setup
+     * @param myI
+     * @return
+     */
     protected static int findCorrespondingThrpt(int myI) {
-        if (myI == 0) {
-            return 8 * 50000;
-        } else if (myI == 1) {
-            return 8 * 100000;
-        } else if (myI < 6) {
-            return 8 * 250000 * (myI - 1);
-        } else if (myI < 24) {
-            return 8 * (1500000 + 500000 * (myI - 6));
-        } else if (myI > 24 && myI < 43) {
-            return 8 * (15000000 + 5000000 * (myI - 25));
-        } else if (myI == 43) {
-            return 8 * 11000000;
-        } else if (myI == 44){
-            return 8 * 13000000;
+        if (myI < 19) {
+            return (800 - (myI * 40)) * 1000000;
+        } else if (myI < 37) {
+            return (76 - ((myI - 19) * 4)) * 1000000;
+        } else if (myI < 43) {
+            return (6 - ((myI - 37))) * 1000000;
+        } else if (myI < 47) {
+            return (800 - ((myI - 43) * 200)) * 1000;
         } else { // default unlimited
             if (MainActivity.isLocal)
                 return 8 * 100000000; // for loopback, the unlimited shouldn't be really unlimited..

@@ -48,10 +48,11 @@ public class SSLogger extends Service {
                 // read current cpu usage
                 readUsage(raws);
                 String myTmp = mTime + " " + raws[0] + " ";
-                for (int i = 0; i < MainActivity.coreNum-1; ++i) {
+                for (int i = 0; i < MainActivity.coreNum - 1; ++i) {
                     myTmp += raws[i+1] + " " + cpuFrequency(i) + " ";
                 }
-                myTmp += raws[MainActivity.coreNum] + " " + cpuFrequency(MainActivity.coreNum-1) + "\n";
+                myTmp += raws[MainActivity.coreNum] + " "
+                        + cpuFrequency(MainActivity.coreNum - 1) + "\n";
 //                // cpuTotal
 //                String[] cpuTotal = raws[0].split("\\s+");
 //                String cpuTotalsum = parseProcStat(cpuTotal);
