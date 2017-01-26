@@ -175,7 +175,10 @@ int main(int argc, char *argv[])
     // end timing
     gettimeofday(&t_end, NULL);
     elapsedTime = (t_end.tv_sec - t_start.tv_sec) + (t_end.tv_usec - t_start.tv_usec) / 1000000.0;
-    printf("duration(s):%lf\nthroughput(bps):%lf\n", elapsedTime, total_bytes_sent * 8 / elapsedTime);
+    printf(
+        "sent(bytes):%d\nduration(s):%lf\nthroughput(bps):%lf\n",
+        total_bytes_sent, elapsedTime, total_bytes_sent * 8 / elapsedTime);
+
     
     close(sockfd);
     close(fd);
