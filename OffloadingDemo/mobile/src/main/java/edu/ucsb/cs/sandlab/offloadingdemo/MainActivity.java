@@ -169,11 +169,10 @@ public class MainActivity extends Activity {
         if (!Utilities.fileExist(binaryFolderPath + "bigfile")) {
             try {
                 Runtime.getRuntime().exec(
-                        "dd if=/dev/zero of="
+                        "su && dd if=/dev/zero of="
                                 + binaryFolderPath + "bigfile"
-                                + " count=1 bs=1 seek=$((2 * 1024 * 1024 * 1024 - 1))").waitFor();
-                Runtime.getRuntime().exec(
-                        "chmod 755 " + binaryFolderPath + "bigfile");
+                                + " count=1 bs=1 seek=$((2 * 1024 * 1024 * 1024 - 1)) "
+                                + "&& chmod 755 " + binaryFolderPath + "bigfile").waitFor();
             } catch (IOException e) {
                 e.printStackTrace();
             } catch (InterruptedException e) {
@@ -340,6 +339,7 @@ public class MainActivity extends Activity {
                                             commd[2] += " " + outFolderPath + "/"
                                                     + existedItems[selectedItems.get(i)];
                                         }
+                                        Log.d(TAG, "commd: " + commd[2]);
                                         Runtime.getRuntime().exec(commd).waitFor();
                                         Thread.sleep(1000);
                                         // start repeating
@@ -647,7 +647,9 @@ public class MainActivity extends Activity {
                         (bytes2send == (20*oneMB))?"Current: 20MB":"20MB",
                         (bytes2send == (50*oneMB))?"Current: 50MB":"50MB",
                         (bytes2send == (100*oneMB))?"Current: 100MB":"100MB",
-                        (bytes2send == (200*oneMB))?"Current: 200MB":"200MB"};
+                        (bytes2send == (200*oneMB))?"Current: 200MB":"200MB",
+                        (bytes2send == (500*oneMB))?"Current: 500MB":"500MB",
+                        (bytes2send == (1000*oneMB))?"Current: 1GB":"1GB"};
                 AlertDialog.Builder mDialog = new AlertDialog.Builder(MainActivity.this);
                 mDialog.setItems(mItems, new DialogInterface.OnClickListener() {
                     @Override
@@ -664,6 +666,10 @@ public class MainActivity extends Activity {
                             bytes2send = 50 * oneMB;
                             for (int i = 6; i < which; ++i)
                                 bytes2send *= 2;
+                        } else if (which == 9) {
+                            bytes2send = 500 * oneMB;
+                        } else if (which == 10) {
+                            bytes2send = 1000 * oneMB;
                         } else {
                             bytes2send = 10 * oneMB; // default 10MB
                         }
@@ -804,6 +810,8 @@ public class MainActivity extends Activity {
                                         Toast.LENGTH_SHORT).show();
                                 break;
                             case 3:
+                                // TODO: wifi driver for android build not working, only for
+                                // Samsung? Need to check.
                                 wifiDriverPID = isChecked ?
                                         Utilities.getMyPID("dhd_dpc", true) : -1;
                                 Toast.makeText(MainActivity.this,
