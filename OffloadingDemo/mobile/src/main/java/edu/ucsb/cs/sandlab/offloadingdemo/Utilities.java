@@ -24,6 +24,7 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.Enumeration;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * Created by yanzi on 10/1/15.
@@ -33,8 +34,9 @@ public class Utilities {
     private static final String TAG = "Utilities";
 
     // variables
-    protected static String myInetIP = "127.0.0.1";
-    protected static String myMAC = "";
+    static int oneMB = 1048576;
+    static String myInetIP = null;
+    static String myMAC = null;
 
     // Storage Permissions
     private static final int REQUEST_EXTERNAL_STORAGE = 1;
@@ -43,13 +45,15 @@ public class Utilities {
             Manifest.permission.WRITE_EXTERNAL_STORAGE
     };
 
+
+
     /**
      * Android 6.0 + required
      * Checks if the app has permission to write to device storage
      * If the app does not has permission then the user will be prompted to grant permissions
-     * @param activity
+     * @param activity:
      */
-    public static void verifyStoragePermissions(Activity activity) {
+    static void verifyStoragePermissions(Activity activity) {
         // Check if we have write permission
         int permission = ActivityCompat.checkSelfPermission(
                 activity, Manifest.permission.WRITE_EXTERNAL_STORAGE);
@@ -69,7 +73,7 @@ public class Utilities {
      * check if we can write on external storage
      * @return true/false
      */
-    public static boolean canWriteOnExternalStorage() {
+    static boolean canWriteOnExternalStorage() {
         String state = Environment.getExternalStorageState();
         if (Environment.MEDIA_MOUNTED.equals(state)) {
             return true;
@@ -80,11 +84,13 @@ public class Utilities {
     /**
      * get the ip and mac addresses
      */
-    protected static void getSelfIdentity(String interface_name, boolean useIPv4) {
+    static void getSelfIdentity(String interface_name, boolean useIPv4) {
         String name;
         Enumeration<NetworkInterface> networks;
         Enumeration<InetAddress> inetAddresses;
         NetworkInterface network;
+        myInetIP = null;
+        myMAC = null;
 
         try {
             networks = NetworkInterface.getNetworkInterfaces();
@@ -109,7 +115,6 @@ public class Utilities {
                     }
                     myMAC = sb.toString();
                 }
-                Log.d(TAG, "myMAC: " + myMAC);
 
                 // get the ip address
                 inetAddresses = network.getInetAddresses();
@@ -132,21 +137,32 @@ public class Utilities {
                         }
                     }
                 }
-                Log.d(TAG, "myIP: " + myInetIP);
 
             }
         } catch (SocketException e) {
             e.printStackTrace();
         }
 
+        if (myMAC == null) {
+            Log.d(TAG, "Failed to get MAC from interface " + interface_name);
+            myMAC = "00:00:00:00:00:00";
+        }
+
+        if (myInetIP == null) {
+            Log.d(TAG, "Failed to get IP from interface " + interface_name);
+            myInetIP = "127.0.0.1";
+        }
+
+        Log.d(TAG, "myMAC: " + myMAC);
+        Log.d(TAG, "myIP: " + myInetIP);
     }
 
     /**
      * parse binary file output
-     * @param output
+     * @param output:
      * @return double
      */
-    protected static double parseBinOutput(String output) {
+    static double parseBinOutput(String output) {
         String[] toks = output.trim().split(":");
         if (toks.length == 2) {
             return Double.parseDouble(toks[1]);
@@ -158,7 +174,7 @@ public class Utilities {
      * get the number of cores of device
      * @return int > 0
      */
-    protected static int getNumCores() {
+    static int getNumCores() {
         Process proc;
         BufferedReader stdout_buf;
         String stdout;
@@ -202,40 +218,45 @@ public class Utilities {
      */
     protected static int getMyPID(String inName, boolean flag) {
         String commd;
+        Process proc;
+        BufferedReader stdout_buf;
+        String stdout;
+
+        // get commd ready
         if (flag)
             commd = "su -c busybox ps | grep "
                     + inName + " | grep -v grep | head -1 | awk '{print $1}'";
         else
             commd = "su -c busybox ps | grep "
                     + inName + " | grep -v grep | head -1 | awk '{print $3}'";
+
         try {
-            Process proc = Runtime.getRuntime().exec(commd);
+            proc = Runtime.getRuntime().exec(commd);
             proc.waitFor();
-            String line;
-            StringBuilder out = new StringBuilder();
-            BufferedReader is = new BufferedReader(
-                    new InputStreamReader(proc.getInputStream()));
-            while ((line = is.readLine()) != null) {
-                out.append(line).append("\n");
+
+            // read std out
+            stdout_buf = new BufferedReader(new InputStreamReader(
+                    proc.getInputStream()));
+
+            stdout = stdout_buf.readLine();
+            stdout_buf.close();
+
+            if (! stdout.equals("")) {
+                Log.d(TAG, inName + "PID: " + stdout);
+                return Integer.parseInt(stdout);
             }
-            String tmp = out.toString().trim();
-            if (!tmp.equals("")) {
-                return Integer.parseInt(tmp);
-            }
-        } catch (InterruptedException unimportant) {
-            Log.d(TAG, "InterruptedException but unimportant");
-        } catch (IOException e) {
-            Log.d(TAG, "IOException but unimportant");
+        } catch (InterruptedException | IOException ignored) {
+            Log.d(TAG, "Faild to fetch PID for " + inName);
         }
         return -1;
     }
 
     /**
      * check if a file exists
-     * @param myFile
+     * @param myFile:
      * @return true/false
      */
-    protected static boolean fileExist(String myFile) {
+    static boolean fileExist(String myFile) {
         File file = new File(myFile);
         if (file.exists() && file.isFile())
             return true;
@@ -244,11 +265,11 @@ public class Utilities {
 
     /**
      * check if a directory exists
-     * @param myDirectory
+     * @param myDirectory:
      * @param createIfNot: try to create the folder if directory does not exist
      * @return true/false
      */
-    protected static boolean dirExist(String myDirectory, boolean createIfNot) {
+    static boolean dirExist(String myDirectory, boolean createIfNot) {
         File file = new File(myDirectory);
         if (file.exists() && file.isDirectory())
             return true;
@@ -264,116 +285,154 @@ public class Utilities {
     }
 
     /**
-     * parse CPU for a folder
-     * @param folderName
+     * post parse CPU for a folder
+     * @param folderName:
      * @return true/false
      */
-    protected static boolean parseCPUforFolder(String folderName) {
+    static boolean parseCPUforFolder(String folderName) {
+        Process proc;
+        BufferedReader stdout_buf, br;
+        FileOutputStream os_cpu;
+        String cpuFile, line, tmp;
+        int i, offset;
+
         try {
-            Process proc = Runtime.getRuntime().exec(
+            proc = Runtime.getRuntime().exec(
                     "su && cd " + MainActivity.outFolderPath + "/"
                             + folderName + " && ls *.cpuRaw");
             proc.waitFor();
-            InputStream stdout = proc.getInputStream();
-            byte[] buffer = new byte[20];
-            int read;
-            StringBuilder out = new StringBuilder();
-            while(true){
-                read = stdout.read(buffer);
-                if(read<0){
-                    Log.d(TAG, "Failed in parseCPUforFolder: ls nothing");
-                    break;
-                }
-                out.append(new String(buffer, 0, read));
-                if(read<20){
-                    break;
-                }
-            }
-            if (!out.toString().equals("")) {
-                String[] cpuFiles = out.toString().split("\\n");
-                for (int i = 0; i < cpuFiles.length; ++i) {
-                    try {
-                        BufferedReader br = new BufferedReader(
-                                new FileReader(
-                                        MainActivity.outFolderPath + "/"
-                                                + folderName + "/" + cpuFiles[i]));
-                        FileOutputStream os_cpu = new FileOutputStream(
-                                new File(
-                                        MainActivity.outFolderPath + "/"
-                                                + folderName,
-                                        cpuFiles[i].replace("cpuRaw", "cpu")));
-                        String line;
-                        while ((line = br.readLine()) != null) {
-                            String[] toks = line.split("\\s+");
-                            // format for Ana's script:
-                            //      time
-                            //      cpuTotal idle
-                            //      cpuTotal used
-                            //      cpu0 idle
-                            //      cpu0 used
-                            //      cpu0 freq
-                            //      cpu1 freq
-                            //      cpuTotal normal process user mode
-                            //      cpuTotal niced process in user mode
-                            //      cpuTotal kernal mode
-                            //      cpuTotal IO
-                            //      cpuTotal hardware interrupts
-                            //      cpuTotal software interrupts
-                            //      cpu0 normal process user mode
-                            //      cpu0 niced process in user mode
-                            //      cpu0 kernal mode
-                            //      cpu0 IO
-                            //      cpu0 hardware interrupts
-                            //      cpu0 software interrupts
-                            os_cpu.write((toks[0] + " "     // time
-                                    // cpuTotal toks[1-11]
-                                    + toks[5] + " "         // cpuTotal idle
-                                    // cpuTotal used
-                                    + (Long.parseLong(toks[2]) + Long.parseLong(toks[3])
-                                    + Long.parseLong(toks[4]) + Long.parseLong(toks[6])
-                                    + Long.parseLong(toks[7]) + Long.parseLong(toks[8])) + " "
-                                    // cpu 0 toks[12-22]
-                                    + toks[16] + " "        // cpu0 idle
-                                    // cpu0 used
-                                    + (Long.parseLong(toks[13]) + Long.parseLong(toks[14])
-                                    + Long.parseLong(toks[15]) + Long.parseLong(toks[17])
-                                    + Long.parseLong(toks[18]) + Long.parseLong(toks[19])) + " "
-                                    // cpu 0 freq toks[23]
-                                    + toks[23] + " "
-                                    // cpu 1 freq toks[35]
-                                    + toks[35] + " "
-                                    // cpuTotal details
-                                    + toks[2] + " " + toks[3] + " " + toks[4] + " "
-                                    + toks[6] + " " + toks[7] + " " + toks[8] + " "
-                                    // cpu0 details
-                                    + toks[13] + " " + toks[14] + " " + toks[15] + " "
-                                    + toks[17] + " " + toks[18] + " " + toks[19]).getBytes());
-                            // cpu 1 toks[24-34]
-                            os_cpu.write("\n".getBytes());
-                            os_cpu.flush();
-                        }
-                        os_cpu.close();
-                    } catch (IOException unimportant) {
-                        return false;
+
+            // read std out
+            stdout_buf = new BufferedReader(new InputStreamReader(
+                    proc.getInputStream()));
+
+            while ((cpuFile = stdout_buf.readLine()) != null) {
+                br = new BufferedReader(new FileReader(
+                                MainActivity.outFolderPath + "/"
+                                        + folderName + "/" + cpuFile));
+
+                os_cpu = new FileOutputStream(new File(
+                                MainActivity.outFolderPath + "/"
+                                        + folderName + "/" + cpuFile.replace("cpuRaw", "cpu")));
+
+                while ((line = br.readLine()) != null) {
+
+                    String[] s = line.split("\\s+");
+
+                    /*
+                     * each line format as the following
+                     * [ // 0        1      2     3     4      5      6      7      8       9-11
+                     *  timestamp, "cpu", user, nice, system, idle, iowait, irq, softirq, 0, 0, 0,
+                     *   // 12   13    14     15     16     17     18    19      20-22      23
+                     *  "cpu0", user, nice, system, idle, iowait, irq, softirq, 0, 0, 0, frequency,
+                     *  ...
+                     * ]
+                     */
+
+                    tmp = s[0] + " "                // timestamp
+                            + s[5] + " "            // cpu_total idle
+                            + parseUsedCPU(s, 1);   // cpu_total used
+
+                    for (i = 0; i < MainActivity.coreNum; ++i) {
+                        offset = (i + 1) * 12;
+                        tmp += " " + s[4 + offset]                  // cpu_i idle
+                                + " " + parseUsedCPU(s, offset)     // cpu_i used
+                                + " " + s[offset + 11];     // cpu_i frequency
                     }
+                    tmp += "\n";
+
+                    /*
+                     * convert to parsed format (each line):
+                     * [
+                     *  timestamp, cpu_total idle, cpu_total used,
+                     *  cpu_0 idle, cpu_0 used, cpu_0 frequency,
+                     *  ...
+                     * ]
+                     */
+                    os_cpu.write(tmp.getBytes());
+
+
+                    // format for Ana's script:
+                    //      time
+                    //      cpuTotal idle
+                    //      cpuTotal used
+                    //      cpu0 idle
+                    //      cpu0 used
+                    //      cpu0 freq
+                    //      cpu1 freq
+                    //      cpuTotal normal process user mode
+                    //      cpuTotal niced process in user mode
+                    //      cpuTotal kernal mode
+                    //      cpuTotal IO
+                    //      cpuTotal hardware interrupts
+                    //      cpuTotal software interrupts
+                    //      cpu0 normal process user mode
+                    //      cpu0 niced process in user mode
+                    //      cpu0 kernal mode
+                    //      cpu0 IO
+                    //      cpu0 hardware interrupts
+                    //      cpu0 software interrupts
+//                    os_cpu.write((toks[0] + " "     // time
+//                            // cpuTotal toks[1-11]
+//                            + toks[5] + " "         // cpuTotal idle
+//                            // cpuTotal used
+//                            + (Long.parseLong(toks[2]) + Long.parseLong(toks[3])
+//                            + Long.parseLong(toks[4]) + Long.parseLong(toks[6])
+//                            + Long.parseLong(toks[7]) + Long.parseLong(toks[8])) + " "
+//                            // cpu 0 toks[12-22]
+//                            + toks[16] + " "        // cpu0 idle
+//                            // cpu0 used
+//                            + (Long.parseLong(toks[13]) + Long.parseLong(toks[14])
+//                            + Long.parseLong(toks[15]) + Long.parseLong(toks[17])
+//                            + Long.parseLong(toks[18]) + Long.parseLong(toks[19])) + " "
+//                            // cpu 0 freq toks[23]
+//                            + toks[23] + " "
+//                            // cpu 1 freq toks[35]
+//                            + toks[35] + " "
+//                            // cpuTotal details
+//                            + toks[2] + " " + toks[3] + " " + toks[4] + " "
+//                            + toks[6] + " " + toks[7] + " " + toks[8] + " "
+//                            // cpu0 details
+//                            + toks[13] + " " + toks[14] + " " + toks[15] + " "
+//                            + toks[17] + " " + toks[18] + " " + toks[19]).getBytes());
+//                    // cpu 1 toks[24-34]
+//                    os_cpu.write("\n".getBytes());
                 }
+
+                br.close();
+                os_cpu.close();
             }
-        } catch (IOException e) {
-//            e.printStackTrace();
-            return false;
-        } catch (InterruptedException e) {
-//            e.printStackTrace();
+
+            stdout_buf.close();
+
+        } catch (IOException | InterruptedException ignore) {
             return false;
         }
         return true;
     }
 
+
+    /**
+     * parse the cpu usage (used)
+     * @param tmp: cpu usage
+     * @return long: used cpu usage
+     */
+    static Long parseUsedCPU(String[] tmp, int offset) {
+        return (Long.parseLong(tmp[1 + offset])
+                + Long.parseLong(tmp[2 + offset])
+                + Long.parseLong(tmp[3 + offset])
+                + Long.parseLong(tmp[5 + offset])
+                + Long.parseLong(tmp[6 + offset])
+                + Long.parseLong(tmp[7 + offset]));
+    }
+
+
     /**
      * Translate the selection index into throughput setup
-     * @param myI
-     * @return
+     * @param myI:
+     * @return integer
      */
-    protected static int findCorrespondingThrpt(int myI) {
+    static int findCorrespondingThrpt(int myI) {
         if (myI < 19) {
             return (800 - (myI * 40)) * 1000000;
         } else if (myI < 37) {
@@ -390,8 +449,18 @@ public class Utilities {
         }
     }
 
-    protected static void estimateTime(int numRepeats, int numSelectedItems, int totalBytes, ArrayList<Integer> selectedItemsThrpt) {
+    /**
+     * Estimate how much time left
+     * @param numRepeats:
+     * @param numSelectedItems:
+     * @param totalBytes:
+     * @param selectedItemsThrpt:
+     */
+    static void estimateTime(
+            int numRepeats, int numSelectedItems, int totalBytes,
+            ArrayList<Integer> selectedItemsThrpt) {
         int time = 0;
+
         if (MainActivity.isLocal) {
             for (int k = 0; k < selectedItemsThrpt.size(); ++k)
                 time += (Math.max(totalBytes / findCorrespondingThrpt(selectedItemsThrpt.get(k)) + 20, 20));
@@ -399,8 +468,13 @@ public class Utilities {
             for (int k = 0; k < selectedItemsThrpt.size(); ++k)
                 time += (Math.max(totalBytes / findCorrespondingThrpt(selectedItemsThrpt.get(k)) + 20, 60));
         }
+
         time = (time + 15) * numSelectedItems * numRepeats * 1000;
-        final String estimatedTime = new SimpleDateFormat("MM/dd HH:mm:ss").format(new Date(System.currentTimeMillis() + time));
+
+        final String estimatedTime =
+                new SimpleDateFormat("MM/dd HH:mm:ss", Locale.US).format(
+                        new Date(System.currentTimeMillis() + time));
+
         MainActivity.myHandler.post(new Runnable() {
             @Override
             public void run() {

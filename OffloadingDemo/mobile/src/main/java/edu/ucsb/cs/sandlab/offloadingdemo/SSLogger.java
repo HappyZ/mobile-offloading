@@ -57,13 +57,6 @@ public class SSLogger extends Service {
             String[] cpuUsage = new String[MainActivity.coreNum + 1]; // placeholder for each core
             String[] cpuFreq = new String[MainActivity.coreNum]; // placeholder for each core
 
-            // first line to write is instruction
-            tmp = "# timestamp totalUsage";
-            for (i = 0; i < MainActivity.coreNum; ++i) {
-                tmp += " cpu" + i + " freq" + i;
-            }
-            tmp += "\n";
-
             // if SSLogger is set to run
             while(isRunning) {
 
@@ -77,7 +70,7 @@ public class SSLogger extends Service {
                 readFrequency(cpuFreq);
 
                 // construct bytes for cpuRaw log
-                tmp += mTime + " " + cpuUsage[0];
+                tmp = mTime + " " + cpuUsage[0];
                 for (i = 0; i < MainActivity.coreNum; ++i) {
                     tmp += " " + cpuUsage[i + 1] + " " + cpuFreq[i];
                 }
@@ -186,12 +179,6 @@ public class SSLogger extends Service {
 
         // permission error
         if (!Utilities.canWriteOnExternalStorage()) {
-            MainActivity.myHandler.post(new Runnable() {
-                @Override
-                public void run() {
-                    MainActivity.txt_results.append("Can't write sdcard\n");
-                }
-            });
             onDestroy();
         }
 

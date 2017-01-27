@@ -40,7 +40,6 @@ public class MainActivity extends Activity {
     protected static final String udpserver_pathport = "~/mobileRDMABeach/UDPServer 32000 ";
     protected static final String binaryFolderPath = "/data/local/tmp/";
     protected static final String binary_tcpdump = "tcpdump";
-    protected static final int oneMB = 1048576;
     private static final String TAG = "MainActivity";
     private static final int mVersion = Build.VERSION.SDK_INT;
     // the configs
@@ -66,7 +65,7 @@ public class MainActivity extends Activity {
     protected static int UDPfinishTime = 0;
     protected static double reportedFinishTime = 0.0;
     protected static int repeatCounts = 3;
-    protected static int bytes2send = 10 * oneMB; // default 10MB
+    protected static int bytes2send = 10 * Utilities.oneMB; // default 10MB
     protected static int currentBandwidth = -1; // bps, default is -1, indicating unlimited
     protected static TextView txt_results;
     protected static Handler myHandler;
@@ -550,9 +549,10 @@ public class MainActivity extends Activity {
     }
 
     /**
-     * Intialize parameters etc.
+     * Initialize parameters etc.
      */
     protected void initialization() {
+
         // must have root privilege in order to run
         try {
             Runtime.getRuntime().exec("su");
@@ -561,12 +561,26 @@ public class MainActivity extends Activity {
         } catch (Throwable e) {
             Toast.makeText(this, R.string.warn_root, Toast.LENGTH_LONG).show();
         }
+
         // must have storage permission
         Utilities.verifyStoragePermissions(this);
+
+        // permission error
+        if (!Utilities.canWriteOnExternalStorage()) {
+            Log.d(TAG, "Permission error: cannot write on external storage.");
+            MainActivity.myHandler.post(new Runnable() {
+                @Override
+                public void run() {
+                    MainActivity.txt_results.append("Can't write on external storage!\n");
+                }
+            });
+        }
+
         // handler that updates the ui at main thread
         // it's used in sslogger thus will be modded in receiver activity also
         // do not modify this
         myHandler = new Handler();
+
         // sslogger intent
         intentSSLogger = new Intent(this, SSLogger.class);
         // grab WiFi service and check if wifi is enabled
@@ -638,39 +652,39 @@ public class MainActivity extends Activity {
             @Override
             public void onClick(View v) {
                 final CharSequence[] mItems={
-                        (bytes2send == (oneMB/2))?"Current: 0.5MB":"0.5MB",
-                        (bytes2send == (oneMB))?"Current: 1MB":"1MB",
-                        (bytes2send == (2*oneMB))?"Current: 2MB":"2MB",
-                        (bytes2send == (5*oneMB))?"Current: 5MB":"5MB",
-                        (bytes2send == (10*oneMB))?"Current: 10MB":"10MB",
-                        (bytes2send == (20*oneMB))?"Current: 20MB":"20MB",
-                        (bytes2send == (50*oneMB))?"Current: 50MB":"50MB",
-                        (bytes2send == (100*oneMB))?"Current: 100MB":"100MB",
-                        (bytes2send == (200*oneMB))?"Current: 200MB":"200MB",
-                        (bytes2send == (500*oneMB))?"Current: 500MB":"500MB",
-                        (bytes2send == (1000*oneMB))?"Current: 1GB":"1GB"};
+                        (bytes2send == (Utilities.oneMB/2))?"Current: 0.5MB":"0.5MB",
+                        (bytes2send == (Utilities.oneMB))?"Current: 1MB":"1MB",
+                        (bytes2send == (2*Utilities.oneMB))?"Current: 2MB":"2MB",
+                        (bytes2send == (5*Utilities.oneMB))?"Current: 5MB":"5MB",
+                        (bytes2send == (10*Utilities.oneMB))?"Current: 10MB":"10MB",
+                        (bytes2send == (20*Utilities.oneMB))?"Current: 20MB":"20MB",
+                        (bytes2send == (50*Utilities.oneMB))?"Current: 50MB":"50MB",
+                        (bytes2send == (100*Utilities.oneMB))?"Current: 100MB":"100MB",
+                        (bytes2send == (200*Utilities.oneMB))?"Current: 200MB":"200MB",
+                        (bytes2send == (500*Utilities.oneMB))?"Current: 500MB":"500MB",
+                        (bytes2send == (1000*Utilities.oneMB))?"Current: 1GB":"1GB"};
                 AlertDialog.Builder mDialog = new AlertDialog.Builder(MainActivity.this);
                 mDialog.setItems(mItems, new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
                         if (which < 3) {
-                            bytes2send = oneMB/2;
+                            bytes2send = Utilities.oneMB/2;
                             for (int i = 0; i < which; ++i)
                                 bytes2send *= 2;
                         } else if (which < 6) {
-                            bytes2send = 5 * oneMB;
+                            bytes2send = 5 * Utilities.oneMB;
                             for (int i = 3; i < which; ++i)
                                 bytes2send *= 2;
                         } else if (which < 9) {
-                            bytes2send = 50 * oneMB;
+                            bytes2send = 50 * Utilities.oneMB;
                             for (int i = 6; i < which; ++i)
                                 bytes2send *= 2;
                         } else if (which == 9) {
-                            bytes2send = 500 * oneMB;
+                            bytes2send = 500 * Utilities.oneMB;
                         } else if (which == 10) {
-                            bytes2send = 1000 * oneMB;
+                            bytes2send = 1000 * Utilities.oneMB;
                         } else {
-                            bytes2send = 10 * oneMB; // default 10MB
+                            bytes2send = 10 * Utilities.oneMB; // default 10MB
                         }
                         if (isVerbose) {
                             Log.d(TAG, "outgoing/incoming bytes is set to " + bytes2send);
@@ -716,7 +730,7 @@ public class MainActivity extends Activity {
                     out.add("Disable TCPDump");
                 }
                 try {
-                    Process proc = Runtime.getRuntime().exec("ls /sys/class/net");
+                    Process proc = Runtime.getRuntime().exec("su -c ls /sys/class/net");
                     proc.waitFor();
                     String line;
                     BufferedReader is = new BufferedReader(new InputStreamReader(proc.getInputStream()));
