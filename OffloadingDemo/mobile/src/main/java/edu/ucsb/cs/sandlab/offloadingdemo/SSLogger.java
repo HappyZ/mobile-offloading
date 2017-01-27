@@ -19,14 +19,16 @@ import java.util.ArrayList;
 
 /**
  * Created by yanzi on 9/20/15.
- * two core only right now
+ * Updated by yanzi on 01/27/2017
+ * support multiple cores now
  */
 public class SSLogger extends Service {
     private static final String TAG = "SSLogger";
     private boolean isRunning = false;
     private boolean isRunningPollingThread = false;
-    private String ssFileName, cpuFileName,
-            cpuWiFiDriverPIDFileName, cpuPerProcPIDFileName, cpuTCPDumpFileName, cpuAppSelfFileName;
+    private String  ssFileName, cpuFileName,
+                    cpuWiFiDriverPIDFileName, cpuPerProcPIDFileName,
+                    cpuTCPDumpFileName, cpuAppSelfFileName;
     private int wifiRSS, gsmRSS;
     private static int tcpdumpPID = -1, appSelfPID = -1;
     private WifiManager wm;
@@ -40,79 +42,113 @@ public class SSLogger extends Service {
                 Log.d(TAG, "already running polling thread");
                 return;
             }
+            // prevent multiple polling threads
             isRunningPollingThread = true;
+
+            // variables
+            int i;
+            byte[] cpuRawStuff, ssStuff = null,
+                   cpuWiFiDriverPIDStuff = null,
+                   cpuPerPIDStuff = null,
+                   cpuTCPDumpStuff = null,
+                   cpuAppSelfStuff = null;
+            String mTime; // holder for system time
+            String tmp; // placeholder for constructed string
+            String[] cpuUsage = new String[MainActivity.coreNum + 1]; // placeholder for each core
+            String[] cpuFreq = new String[MainActivity.coreNum]; // placeholder for each core
+
+            // first line to write is instruction
+            tmp = "# timestamp totalUsage";
+            for (i = 0; i < MainActivity.coreNum; ++i) {
+                tmp += " cpu" + i + " freq" + i;
+            }
+            tmp += "\n";
+
+            // if SSLogger is set to run
             while(isRunning) {
+
                 // get current system time
-                String mTime = Long.toString(System.currentTimeMillis());
-                String[] raws = new String[5]; // assume 4 cores, [0] is total
+                mTime = Long.toString(System.currentTimeMillis());
+
                 // read current cpu usage
-                readUsage(raws);
-                String myTmp = mTime + " " + raws[0] + " ";
-                for (int i = 0; i < MainActivity.coreNum - 1; ++i) {
-                    myTmp += raws[i+1] + " " + cpuFrequency(i) + " ";
+                readUsage(cpuUsage);
+
+                // read current cpu frequency
+                readFrequency(cpuFreq);
+
+                // construct bytes for cpuRaw log
+                tmp += mTime + " " + cpuUsage[0];
+                for (i = 0; i < MainActivity.coreNum; ++i) {
+                    tmp += " " + cpuUsage[i + 1] + " " + cpuFreq[i];
                 }
-                myTmp += raws[MainActivity.coreNum] + " "
-                        + cpuFrequency(MainActivity.coreNum - 1) + "\n";
-//                // cpuTotal
-//                String[] cpuTotal = raws[0].split("\\s+");
-//                String cpuTotalsum = parseProcStat(cpuTotal);
-//                // cpu 1 - N (N = coreNum)
-//                String[] cpu1 = raws[1].split("\\s+");
-//                String cpu1sum = parseProcStat(cpu1);
-//                String[] cpu2 = null, cpu3 = null, cpu4 = null;
-//                String cpu2sum = null, cpu3sum = null, cpu4sum = null;
-//                // parse lines
-//                if (MainActivity.coreNum > 1) {
-//                    cpu2 = raws[2].split("\\s+");
-//                    cpu2sum = parseProcStat(cpu2);
-//                }
-//                if (MainActivity.coreNum > 2) {
-//                    cpu3 = raws[3].split("\\s+");
-//                    cpu3sum = parseProcStat(cpu3);
-//                }
-//                if (MainActivity.coreNum > 3) {
-//                    cpu4 = raws[4].split("\\s+");
-//                    cpu4sum = parseProcStat(cpu4);
-//                }
-                byte[] cpuStuff, ssStuff = null,
-                        cpuWiFiDriverPIDStuff = null, cpuPerPIDStuff = null, cpuTCPDumpStuff = null,
-                        cpuAppSelfStuff = null;
-                cpuStuff = myTmp.getBytes();
-                if (MainActivity.wifiDriverPID != -1)
-                    cpuWiFiDriverPIDStuff = (mTime + " " + parseProcPIDStat(readUsagePID(MainActivity.wifiDriverPID))  + "\n").getBytes();
-                if (MainActivity.isLoggingPerProcPID)
-                    cpuPerPIDStuff = (mTime + " " + parseProcPIDStat(readUsagePID(MainActivity.perProcPID)) + "\n").getBytes();
-                if (tcpdumpPID != -1)
-                    cpuTCPDumpStuff = (mTime + " " + parseProcPIDStat(readUsagePID(tcpdumpPID)) + "\n").getBytes();
-                if (MainActivity.isLoggingAppSelf)
-                    cpuAppSelfStuff = (mTime + " " + parseProcPIDStat(readUsagePID(appSelfPID)) + "\n").getBytes();
-                if (wifiRSS != 0)
+                tmp += "\n";
+                cpuRawStuff = tmp.getBytes();
+
+                // construct bytes for PID log
+                if (MainActivity.wifiDriverPID != -1) {
+                    cpuWiFiDriverPIDStuff = (mTime + " "
+                            + parseProcPIDStat(readUsagePID(MainActivity.wifiDriverPID))
+                            + "\n").getBytes();
+                }
+
+                // construct bytes for per process pid (just running process)
+                if (MainActivity.isLoggingPerProcPID) {
+                    cpuPerPIDStuff = (mTime + " "
+                            + parseProcPIDStat(readUsagePID(MainActivity.perProcPID))
+                            + "\n").getBytes();
+                }
+
+                // construct bytes for tcpdump
+                if (tcpdumpPID != -1) {
+                    cpuTCPDumpStuff = (mTime + " "
+                            + parseProcPIDStat(readUsagePID(tcpdumpPID)) + "\n").getBytes();
+                }
+
+                // construct bytes for logging app
+                if (MainActivity.isLoggingAppSelf) {
+                    cpuAppSelfStuff = (mTime + " "
+                            + parseProcPIDStat(readUsagePID(appSelfPID)) + "\n").getBytes();
+                }
+
+                // construct bytes for wifi rss
+                if (wifiRSS != 0) {
                     ssStuff = (mTime + " wifi " + wifiRSS + "\n").getBytes();
+                }
+
+                // write results into file
                 try {
                     if (isRunning) {
                         if (wifiRSS != 0) {
-//                            Log.d(TAG, "Wrote stuff: " + ssStuff);
                             os_ss.write(ssStuff);
                         }
-                        os_cpu.write(cpuStuff);
+
+                        os_cpu.write(cpuRawStuff);
+
                         if (MainActivity.wifiDriverPID != -1)
                             os_cpuWiFiDriverPID.write(cpuWiFiDriverPIDStuff);
+
                         if (MainActivity.isLoggingPerProcPID)
                             os_cpuPerProcPID.write(cpuPerPIDStuff);
+
                         if (tcpdumpPID != -1)
                             os_cpuTCPDump.write(cpuTCPDumpStuff);
+
                         if (MainActivity.isLoggingAppSelf)
                             os_cpuAppSelf.write(cpuAppSelfStuff);
                     }
                 } catch (IOException unimportant) {
                     Log.w(TAG, "IO error at SSLogger");
                 }
+
+                // sleep for a while and then log to prevent high IO (and cpu)
                 try {
                     Thread.sleep(MainActivity.time_wait_for);
                 } catch (Exception unimportant) {
-                    Log.w(TAG, "Can't wait..");
+                    Log.w(TAG, "Can't wait.. something wrong?");
                 }
             }
+
+            // end of polling thread
             isRunningPollingThread = false;
         }
     }
@@ -121,27 +157,34 @@ public class SSLogger extends Service {
      * my initialization
      */
     public void initialization() {
+        // no need to check the directory again since main activity already did
+        File mDir = new File(MainActivity.outFolderPath);
+
         // run tcpdump
         if (MainActivity.isUsingTCPDump) {
             try {
-                Runtime.getRuntime().exec("su -c " + MainActivity.binaryFolderPath
+                Runtime.getRuntime().exec(
+                        "su -c " + MainActivity.binaryFolderPath
                                 + "tcpdump -i " + MainActivity.tcpdumpInterface
                                 + " -w " + MainActivity.outFolderPath + "/tcpdump_wifionly_"
                                 + MainActivity.btn_click_time + " &"
                 ).waitFor();
-                if (MainActivity.isVerbose) {
-                    Log.d(TAG, "TCPDump started");
-                }
             } catch (InterruptedException e) {
                 e.printStackTrace();
             } catch (IOException e) {
                 e.printStackTrace();
             }
+
+            // get the tcpdump pid if requested
             if (MainActivity.isLoggingTCPDump)
                 tcpdumpPID = Utilities.getMyPID(MainActivity.binary_tcpdump, true);
         }
+
+        // get the logging app pid if requested
         if (MainActivity.isLoggingAppSelf)
             appSelfPID = Utilities.getMyPID("offloading", true);
+
+        // permission error
         if (!Utilities.canWriteOnExternalStorage()) {
             MainActivity.myHandler.post(new Runnable() {
                 @Override
@@ -151,41 +194,52 @@ public class SSLogger extends Service {
             });
             onDestroy();
         }
+
         // get the initial WiFi signal strength
         wm = (WifiManager) this.getSystemService(WIFI_SERVICE);
         if (!wm.isWifiEnabled() && MainActivity.isVerbose) {
             MainActivity.myHandler.post(new Runnable() {
                 @Override
                 public void run() {
-                    MainActivity.txt_results.append("WiFi remains OFF!\n");
+                    MainActivity.txt_results.append("WiFi should be ON! Check.\n");
                 }
             });
             wifiRSS = 0;
         } else {
             wifiRSS = wm.getConnectionInfo().getRssi();
-            this.registerReceiver(this.myWifiReceiver, new IntentFilter(WifiManager.RSSI_CHANGED_ACTION));
+            // register to fetch rssi upon change
+            this.registerReceiver(this.myWifiReceiver,
+                    new IntentFilter(WifiManager.RSSI_CHANGED_ACTION));
         }
-        // create folder
-        File mDir = new File(MainActivity.outFolderPath);
-//        mDir.mkdir();
+
+        // signal strength file string
         if (wifiRSS != 0) {
-//            Log.d(TAG, "wifi rss is not 0");
             ssFileName = MainActivity.btn_click_time.concat(".ss");
         }
+
+        // cpu raw usage & frequency file string
         cpuFileName = MainActivity.btn_click_time.concat(".cpuRaw");
+
+        // file handler for cpu usage of wifi driver
         if (MainActivity.wifiDriverPID != -1)
             cpuWiFiDriverPIDFileName = MainActivity.btn_click_time.concat(".cpuPID");
+
+        // file string for cpu usage of my process
         if (MainActivity.isLoggingPerProcPID)
             cpuPerProcPIDFileName = MainActivity.btn_click_time.concat(".cpuProcPID");
+
+        // file string for cpu usage of tcpdump
         if (tcpdumpPID != -1)
             cpuTCPDumpFileName = MainActivity.btn_click_time.concat(".cpuTCPDump");
+
+        // file string for cpu usage of logging app
         if (MainActivity.isLoggingAppSelf)
             cpuAppSelfFileName = MainActivity.btn_click_time.concat(".cpuAppSelf");
+
+        // create file output stream
         try {
             if (wifiRSS != 0) {
-//                Log.d(TAG, "create os_ss handler");
-                File tmp = new File(mDir, ssFileName);
-                os_ss = new FileOutputStream(tmp);
+                os_ss = new FileOutputStream(new File(mDir, ssFileName));
             }
             os_cpu = new FileOutputStream(new File(mDir, cpuFileName));
             if (MainActivity.wifiDriverPID != -1)
@@ -214,28 +268,28 @@ public class SSLogger extends Service {
     @Override
     public void onCreate(){
         super.onCreate();
-//        Toast.makeText(this, "Service Started", Toast.LENGTH_SHORT).show();
     }
 
     @Override
     public void onDestroy(){
         isRunning = false;
+
+        // get rid of wifi rssi monitor
         if (wifiRSS != 0)
             this.unregisterReceiver(this.myWifiReceiver);
+
         // kill tcpdump
         if (MainActivity.isUsingTCPDump) {
             try {
                 Runtime.getRuntime().exec("su -c killall -9 tcpdump").waitFor();
-                if (MainActivity.isVerbose)
-                    Log.d(TAG, "TCPDump ended");
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            } catch (IOException e) {
+            } catch (InterruptedException | IOException e) {
                 e.printStackTrace();
             }
             if (MainActivity.isLoggingTCPDump)
                 tcpdumpPID = -1;
         }
+
+        // close all file handler
         try {
             if (os_ss != null)
                 os_ss.close();
@@ -260,12 +314,15 @@ public class SSLogger extends Service {
         return null;
     }
 
+    /**
+     * get wifi rssi
+     */
     private BroadcastReceiver myWifiReceiver = new BroadcastReceiver(){
         @Override
         public void onReceive(Context arg0, Intent arg1){
             wifiRSS = arg1.getIntExtra(WifiManager.EXTRA_NEW_RSSI, 0);
+            Log.d(TAG, "WiFi RSSI: " + wifiRSS);
             if (MainActivity.isVerbose) {
-                Log.d(TAG, "WiFi RSSI: " + wifiRSS);
                 MainActivity.myHandler.post(new Runnable() {
                     @Override
                     public void run() {
@@ -318,21 +375,8 @@ public class SSLogger extends Service {
     private static void readUsage(String[] raws) {
         try {
             RandomAccessFile reader = new RandomAccessFile("/proc/stat", "r");
-            String load = reader.readLine();
-            raws[0] = load;
-            load = reader.readLine();
-            raws[1] = load;
-            if (MainActivity.coreNum > 1) {
-                load = reader.readLine();
-                raws[2] = load;
-            }
-            if (MainActivity.coreNum > 2) {
-                load = reader.readLine();
-                raws[3] = load;
-            }
-            if (MainActivity.coreNum > 3) {
-                load = reader.readLine();
-                raws[4] = load;
+            for (int i = 0; i <= MainActivity.coreNum; ++i) {
+                raws[i] = reader.readLine();
             }
             reader.close();
         } catch (IOException unimportant) {
@@ -355,25 +399,25 @@ public class SSLogger extends Service {
     }
 
     /**
-     * get the frequency of the cpu
-     * @param cpuid which cpu
-     * @return long
+     * get the frequency of all cpu cores
+     * @param raws
      */
-    private static long cpuFrequency(int cpuid) {
+    private static void readFrequency(String[] raws) {
+        String filepath;
+        RandomAccessFile reader;
+
         try {
-            String pathFile = "/sys/devices/system/cpu/cpu" + cpuid + "/cpufreq/scaling_cur_freq";
-            RandomAccessFile reader = new RandomAccessFile(pathFile, "r");
-            String load = reader.readLine();
-            String[] toks = load.split("\\s+");
-            long cpuScaling = Long.parseLong(toks[0]);
-            reader.close();
-            return cpuScaling;
-        } catch (FileNotFoundException unimportant) {
-//            Log.w(TAG, "exception on cpuFreq");
-            return -1;
+            for (int cpuid = 0; cpuid < MainActivity.coreNum; ++cpuid) {
+                filepath = "/sys/devices/system/cpu/cpu" + cpuid + "/cpufreq/scaling_cur_freq";
+                reader = new RandomAccessFile(filepath, "r");
+                String[] toks = reader.readLine().split("\\s+");
+                raws[cpuid] = toks[0];
+                reader.close();
+            }
         } catch (IOException unimportant) {
-//            Log.w(TAG, "exception on cpuFreq");
-            return -1;
+            Log.w(TAG, "exception on cpuFrequency");
         }
+
     }
+
 }

@@ -34,7 +34,7 @@ public class Thread_TX_CRawNormal implements Runnable {
         commd[2] = (MainActivity.isForcingCPU0?"taskset 1 ":"")
                 + MainActivity.binaryFolderPath + MainActivity.binary_TX_RawNormal + " "
                 + MainActivity.bytes2send + " "
-                + (MainActivity.isLocal ? MainActivity.myMAC : MainActivity.remoteMAC) + " "
+                + (MainActivity.isLocal ? Utilities.myMAC : MainActivity.remoteMAC) + " "
                 + ((MainActivity.currentBandwidth < 0) ? "" : String.valueOf(
                         MainActivity.currentBandwidth));
 

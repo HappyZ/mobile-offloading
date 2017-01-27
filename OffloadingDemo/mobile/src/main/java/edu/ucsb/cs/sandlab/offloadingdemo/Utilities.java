@@ -27,9 +27,15 @@ import java.util.List;
 
 /**
  * Created by yanzi on 10/1/15.
+ * Updated by yanzi on 01/27/2017
  */
 public class Utilities {
     private static final String TAG = "Utilities";
+
+    // variables
+    protected static String myInetIP = "127.0.0.1";
+    protected static String myMAC = "";
+
     // Storage Permissions
     private static final int REQUEST_EXTERNAL_STORAGE = 1;
     private static String[] PERMISSIONS_STORAGE = {
@@ -75,39 +81,22 @@ public class Utilities {
      * get the ip and mac addresses
      */
     protected static void getSelfIdentity(String interface_name, boolean useIPv4) {
+        String name;
+        Enumeration<NetworkInterface> networks;
+        Enumeration<InetAddress> inetAddresses;
+        NetworkInterface network;
+
         try {
-            Enumeration<NetworkInterface> networks =
-                    NetworkInterface.getNetworkInterfaces();
+            networks = NetworkInterface.getNetworkInterfaces();
 
             while (networks.hasMoreElements()) {
-                NetworkInterface network = networks.nextElement();
+                network = networks.nextElement();
 
                 // check if the interface matches the desired one
-                String name = network.getDisplayName();
+                name = network.getDisplayName();
                 if (!name.equals(interface_name))
                     continue;
-
-                // get the ip address
-                Enumeration<InetAddress> inetAddresses = network.getInetAddresses();
-                while (inetAddresses.hasMoreElements()) {
-                    InetAddress inetAddress = inetAddresses.nextElement();
-                    if (!inetAddress.isLoopbackAddress()) {
-                        String sAddr = inetAddress.getHostAddress();
-                        boolean isIPv4 = sAddr.indexOf(':') < 0;
-                        // check if we only want ipv4
-                        if (useIPv4) {
-                            if (isIPv4)
-                                MainActivity.myInetIP = sAddr;
-                        } else {
-                            if (!isIPv4) {
-                                int delim = sAddr.indexOf('%'); // drop ip6 zone suffix
-                                MainActivity.myInetIP =
-                                        (delim < 0) ? sAddr.toUpperCase() : sAddr.substring(
-                                            0, delim).toUpperCase();
-                            }
-                        }
-                    }
-                }
+                Log.d(TAG, "myInterface: " + interface_name);
 
                 // get the mac address
                 byte[] mac = network.getHardwareAddress();
@@ -118,12 +107,38 @@ public class Utilities {
                         sb.append(String.format("%02X%s", mac[i],
                                 (i < mac.length - 1) ? ":" : ""));
                     }
-                    MainActivity.myMAC = sb.toString();
+                    myMAC = sb.toString();
                 }
+                Log.d(TAG, "myMAC: " + myMAC);
+
+                // get the ip address
+                inetAddresses = network.getInetAddresses();
+                while (inetAddresses.hasMoreElements()) {
+                    InetAddress inetAddress = inetAddresses.nextElement();
+                    if (!inetAddress.isLoopbackAddress()) {
+                        String sAddr = inetAddress.getHostAddress();
+                        boolean isIPv4 = sAddr.indexOf(':') < 0;
+                        // check if we only want ipv4
+                        if (useIPv4) {
+                            if (isIPv4)
+                                myInetIP = sAddr;
+                        } else {
+                            if (!isIPv4) {
+                                int delim = sAddr.indexOf('%'); // drop ip6 zone suffix
+                                myInetIP =
+                                        (delim < 0) ? sAddr.toUpperCase() : sAddr.substring(
+                                            0, delim).toUpperCase();
+                            }
+                        }
+                    }
+                }
+                Log.d(TAG, "myIP: " + myInetIP);
+
             }
         } catch (SocketException e) {
             e.printStackTrace();
         }
+
     }
 
     /**
@@ -145,37 +160,34 @@ public class Utilities {
      */
     protected static int getNumCores() {
         Process proc;
+        BufferedReader stdout_buf;
+        String stdout;
+
         try {
             proc = Runtime.getRuntime().exec("grep -c processor /proc/cpuinfo");
-            InputStream stdout = proc.getInputStream();
-            byte[] buff = new byte[20];
-            int read;
-            StringBuilder out = new StringBuilder();
-            while(true){
-                read = stdout.read(buff);
-                if(read<0){
-                    MainActivity.myHandler.post(new Runnable() {
-                        @Override
-                        public void run() {
-                            MainActivity.txt_results.setText("Failed to get cores\n");
-                        }
-                    });
-                    return 1;
-                }
-                out.append(new String(buff, 0, read));
-                if(read<20){
-                    break;
-                }
-            }
             proc.waitFor();
-            stdout.close();
-            //Return the number of cores (virtual CPU devices)
-            return Integer.parseInt(out.toString().trim());
+
+            // read std out
+            stdout_buf = new BufferedReader(new InputStreamReader(
+                    proc.getInputStream()));
+
+            stdout = stdout_buf.readLine();
+            Log.d(TAG, "Number of cores: " + stdout);
+            stdout_buf.close();
+
+            if (stdout == null) {
+                Log.w(TAG, "cannot fetch number of cores!");
+                return 1;
+            } else {
+                return Integer.parseInt(stdout);
+            }
+
         } catch(Exception e) {
+            Log.w(TAG, "cannot fetch number of cores!");
             MainActivity.myHandler.post(new Runnable() {
                 @Override
                 public void run() {
-                    MainActivity.txt_results.setText("Failed to get cores\n");
+                    MainActivity.txt_results.append("Failed to get # of cores\n");
                 }
             });
             //Default to return 1 core

@@ -27,6 +27,7 @@ import java.io.InputStreamReader;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.Locale;
 
 public class MainActivity extends Activity {
     // unchanged stuff
@@ -69,8 +70,6 @@ public class MainActivity extends Activity {
     protected static int currentBandwidth = -1; // bps, default is -1, indicating unlimited
     protected static TextView txt_results;
     protected static Handler myHandler;
-    protected static String myInetIP = "";
-    protected static String myMAC = "";
     protected static String RXportNum = "4444";
     protected static String outFolderPath;
     protected static String btn_click_time;
@@ -486,9 +485,11 @@ public class MainActivity extends Activity {
                                                         + existedItems[selectedItems.get(i)] + "_"
                                                         + (bytes2send / 1024) + "KB_"
                                                         + repeatCounts + "repeats_thrpt_"
-                                                        + (currentBandwidth / 1000000.0) + "MBps_"
-                                                        + new SimpleDateFormat("yyyyMMdd_HHmmss")
-                                                            .format(new Date())
+                                                        + (currentBandwidth == -1 ? "Unlimited" :
+                                                          (currentBandwidth / 1000000.0) + "MBps_")
+                                                        + (new SimpleDateFormat(
+                                                                "yyyyMMdd_HHmmss", Locale.US)
+                                                            .format(new Date()))
                                                         + ".tar.gz";
                                                 commd[2] = "cd " + outFolderPath + "/"
                                                         + existedItems[selectedItems.get(i)]
@@ -600,11 +601,14 @@ public class MainActivity extends Activity {
         binary_RX_RawNormal = "client_recv_bypassl3";
         // get number of cores
         coreNum = Utilities.getNumCores();
+
         // output folder for SSLogger
         outFolderPath = Environment.getExternalStorageDirectory().getAbsolutePath() + "/SSLogger";
         if (!Utilities.dirExist(outFolderPath, true)) {
+            // checked and cannot create this folder
             Toast.makeText(this, "Cannot create folder!!!", Toast.LENGTH_LONG).show();
         }
+
         // elements in the page
         txt_results = (TextView) findViewById(R.id.txt_results);
         btn_startTransmit = (Button) findViewById(R.id.btn_startTransmit);
@@ -615,12 +619,7 @@ public class MainActivity extends Activity {
         btn_setOthers = (Button) findViewById(R.id.btn_setOthers);
         btn_setLogFreq = (Button) findViewById(R.id.btn_setLogFreq);
         btn_clearStatus = (Button) findViewById(R.id.btn_clearStatus);
-        if (coreNum > 2) {
-            txt_results.append(
-                    "Only support 2 cores now! Contact Yanzi to add "
-                            + coreNum + " cores support!\n");
-        }
-        // TODO: remember to add more than 2 core support
+
         txt_results.append(isUsingWifi?getString(R.string.stat_wifion):getString(R.string.stat_wifioff));
         // click listener
         btn_startTransmit.setOnClickListener(new View.OnClickListener() {

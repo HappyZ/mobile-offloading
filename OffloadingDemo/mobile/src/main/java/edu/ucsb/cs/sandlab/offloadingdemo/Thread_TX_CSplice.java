@@ -34,7 +34,7 @@ public class Thread_TX_CSplice implements Runnable {
         commd[2] = (MainActivity.isForcingCPU0?"taskset 1 ":"")
                 + MainActivity.binaryFolderPath + MainActivity.binary_TX_Splice + " "
                 + MainActivity.bytes2send + " "
-                + (MainActivity.isLocal ? MainActivity.myInetIP : MainActivity.remoteIP) + " "
+                + (MainActivity.isLocal ? Utilities.myInetIP : MainActivity.remoteIP) + " "
                 + MainActivity.RXportNum + " "
                 + ((MainActivity.currentBandwidth < 0) ? "" : String.valueOf(
                 MainActivity.currentBandwidth));
