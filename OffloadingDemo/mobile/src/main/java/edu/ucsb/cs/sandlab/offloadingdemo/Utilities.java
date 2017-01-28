@@ -12,18 +12,14 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.SocketException;
-import java.net.UnknownHostException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Date;
 import java.util.Enumeration;
-import java.util.List;
 import java.util.Locale;
 
 /**
@@ -75,10 +71,7 @@ public class Utilities {
      */
     static boolean canWriteOnExternalStorage() {
         String state = Environment.getExternalStorageState();
-        if (Environment.MEDIA_MOUNTED.equals(state)) {
-            return true;
-        }
-        return false;
+        return Environment.MEDIA_MOUNTED.equals(state);
     }
 
     /**
@@ -258,9 +251,7 @@ public class Utilities {
      */
     static boolean fileExist(String myFile) {
         File file = new File(myFile);
-        if (file.exists() && file.isFile())
-            return true;
-        return false;
+        return file.exists() && file.isFile();
     }
 
     /**
@@ -271,17 +262,7 @@ public class Utilities {
      */
     static boolean dirExist(String myDirectory, boolean createIfNot) {
         File file = new File(myDirectory);
-        if (file.exists() && file.isDirectory())
-            return true;
-        if (createIfNot) {
-            try{
-                file.mkdirs();
-            } catch (Exception e) {
-                return false;
-            }
-            return true;
-        }
-        return false;
+        return (file.exists() && file.isDirectory()) || (createIfNot && file.mkdirs());
     }
 
     /**
@@ -417,7 +398,7 @@ public class Utilities {
      * @param tmp: cpu usage
      * @return long: used cpu usage
      */
-    static Long parseUsedCPU(String[] tmp, int offset) {
+    private static Long parseUsedCPU(String[] tmp, int offset) {
         return (Long.parseLong(tmp[1 + offset])
                 + Long.parseLong(tmp[2 + offset])
                 + Long.parseLong(tmp[3 + offset])

@@ -98,7 +98,7 @@ public class MainActivity extends Activity {
     protected static boolean isRunning_RX_RawNormal = false;
     /**
      * Check whether a service is running
-     * @param serviceClass
+     * @param serviceClass:
      * @return true/false
      */
     protected boolean isServiceRunning(Class<?> serviceClass) {
@@ -171,19 +171,17 @@ public class MainActivity extends Activity {
                                 + binaryFolderPath + "bigfile"
                                 + " count=1 bs=1 seek=$((2 * 1024 * 1024 * 1024 - 1)) "
                                 + "&& chmod 755 " + binaryFolderPath + "bigfile").waitFor();
-            } catch (IOException e) {
-                e.printStackTrace();
-            } catch (InterruptedException e) {
+            } catch (IOException | InterruptedException e) {
                 e.printStackTrace();
             }
             Toast.makeText(this, "Created a 2Gbits big file", Toast.LENGTH_LONG).show();
         }
         if (!missingFiles.equals("")) {
-            final String mFiles = missingFiles;
+            final String mFiles = "Failed to find following files:\n" + missingFiles;
             myHandler.post(new Runnable() {
                 @Override
                 public void run() {
-                    txt_results.setText("Failed to find following files:\n" + mFiles);
+                    txt_results.setText(mFiles);
                     btn_startTransmit.setEnabled(false);
                     btn_startReceive.setEnabled(false);
                 }
@@ -508,9 +506,7 @@ public class MainActivity extends Activity {
                                             }
                                         }
                                         Thread.sleep(2000);
-                                    } catch (InterruptedException e) {
-                                        e.printStackTrace();
-                                    } catch (IOException e) {
+                                    } catch (InterruptedException | IOException e) {
                                         e.printStackTrace();
                                     }
                                 }
@@ -523,9 +519,7 @@ public class MainActivity extends Activity {
                                     Runtime.getRuntime().exec(
                                             "su -c echo 1 > /sys/class/lcd/panel/lcd_power")
                                             .waitFor();
-                                } catch (InterruptedException e) {
-                                    e.printStackTrace();
-                                } catch (IOException e) {
+                                } catch (InterruptedException | IOException e) {
                                     e.printStackTrace();
                                 }
                                 // msg indicating all done
@@ -585,7 +579,7 @@ public class MainActivity extends Activity {
         intentSSLogger = new Intent(this, SSLogger.class);
         // grab WiFi service and check if wifi is enabled
         wm = (WifiManager) this.getSystemService(WIFI_SERVICE);
-        isUsingWifi = (wm.isWifiEnabled()) ? true : false;
+        isUsingWifi = wm.isWifiEnabled();
         Utilities.getSelfIdentity(tcpdumpInterface, true);
         // predefined selections
         existedItems = new CharSequence[] {
@@ -741,9 +735,7 @@ public class MainActivity extends Activity {
                             out.add(line);
                         }
                     }
-                } catch (IOException e) {
-                    e.printStackTrace();
-                } catch (InterruptedException e) {
+                } catch (IOException | InterruptedException e) {
                     e.printStackTrace();
                 }
                 final CharSequence mTmp[] = out.toArray(new CharSequence[out.size()]);
@@ -823,8 +815,7 @@ public class MainActivity extends Activity {
                                         Toast.LENGTH_SHORT).show();
                                 break;
                             case 3:
-                                // TODO: wifi driver for android build not working, only for
-                                // Samsung? Need to check.
+                                // TODO: wifi driver for Nexus build not working
                                 wifiDriverPID = isChecked ?
                                         Utilities.getMyPID("dhd_dpc", true) : -1;
                                 Toast.makeText(MainActivity.this,

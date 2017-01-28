@@ -12,7 +12,7 @@ import java.io.InputStreamReader;
  * Updated on 01/27/17
  */
 
-public class Thread_TX_CNormal implements Runnable {
+class Thread_TX_CNormal implements Runnable {
     private double sentBytes = 0.0;
     private double duration = 0.0;
     private double throughput = 0.0;
