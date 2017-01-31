@@ -35,12 +35,11 @@ class Thread_RX_CRawNormal implements Runnable {
         commd[0] = "su";
         commd[1] = "-c";
         // ./client_recv_bypassl3 <ip> <port>
-        // <[optional] recvsize (bytes)> <[optional] interface> <[optional] filepath>
+        // <[optional] recvsize (Bytes)> <[optional] interface> <[optional] filepath>
         commd[2] = (MainActivity.isForcingCPU0?"taskset 1 ":"")
                 + MainActivity.binaryFolderPath + MainActivity.binary_RX_RawNormal
                 + " " + (MainActivity.isLocal ? Utilities.myInetIP : MainActivity.remoteIP)
-                + " " + MainActivity.RXportNum
-                + " " + MainActivity.bytes2send;
+                + " " + MainActivity.RXportNum;
 
         Log.d("RX_RawNormal", "Start RX RawNormal");
 

@@ -35,7 +35,7 @@ class Thread_TX_CRawNormal implements Runnable {
         commd[0] = "su";
         commd[1] = "-c";
         // ./client_send_bypassl3 <bytes2send/file2send> <dest MAC address>
-        // <[optional] bandwidth (bps)> <[optional] sendsize (bytes)> <[optional] interface>
+        // <[optional] bandwidth (bps)> <[optional] sendsize (Bytes)> <[optional] interface>
         commd[2] = (MainActivity.isForcingCPU0?"taskset 1 ":"")
                 + MainActivity.binaryFolderPath + MainActivity.binary_TX_RawNormal + " "
                 + MainActivity.bytes2send + " "

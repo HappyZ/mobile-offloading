@@ -35,12 +35,11 @@ class Thread_RX_CSplice implements Runnable {
         commd[0] = "su";
         commd[1] = "-c";
         // ./client_recv_normaltcp_splice <ip> <port>
-        // <[optional] recvsize (bytes)> <[optional] filepath>
+        // <[optional] recvsize (Bytes)> <[optional] filepath>
         commd[2] = (MainActivity.isForcingCPU0?"taskset 1 ":"")
                 + MainActivity.binaryFolderPath + MainActivity.binary_RX_Splice
                 + " " + (MainActivity.isLocal ? Utilities.myInetIP : MainActivity.remoteIP)
-                + " " + MainActivity.RXportNum
-                + " " + MainActivity.bytes2send;
+                + " " + MainActivity.RXportNum;
 
         Log.d("RX_Splice", "Start RX Splice");
         try {

@@ -35,7 +35,7 @@ class Thread_TX_CNormal implements Runnable {
         commd[0] = "su";
         commd[1] = "-c";
         // ./client_send_normaltcp <bytes2send/file2send> <ip> <port>
-        // <[optional] bandwidth (bps)> <[optional] sendsize (bytes)>
+        // <[optional] bandwidth (bps)> <[optional] sendsize (Bytes)>
         commd[2] = (MainActivity.isForcingCPU0?"taskset 1 ":"")
                 + MainActivity.binaryFolderPath + MainActivity.binary_TX_Normal + " "
                 + MainActivity.bytes2send + " "

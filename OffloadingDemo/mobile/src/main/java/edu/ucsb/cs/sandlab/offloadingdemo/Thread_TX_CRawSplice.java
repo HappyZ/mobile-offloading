@@ -31,7 +31,7 @@ class Thread_TX_CRawSplice implements Runnable {
         commd[0] = "su";
         commd[1] = "-c";
         // ./client_send_bypassl3_splice <bytes2send/file2send> <ip> <port>
-        // <[optional] bandwidth (bps)> <[optional] sendsize (bytes)>
+        // <[optional] bandwidth (bps)> <[optional] sendsize (Bytes)>
         commd[2] = (MainActivity.isForcingCPU0?"taskset 1 ":"")
                 + MainActivity.binaryFolderPath + MainActivity.binary_TX_RawSplice + " "
                 + MainActivity.bytes2send + " "
