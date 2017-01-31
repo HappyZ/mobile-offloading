@@ -19,6 +19,7 @@ class Thread_TX_CRawNormal implements Runnable {
 
     @Override
     public void run() {
+
         // prevent multiple runs
         if (MainActivity.isRunning_TX_RawNormal)
             return;

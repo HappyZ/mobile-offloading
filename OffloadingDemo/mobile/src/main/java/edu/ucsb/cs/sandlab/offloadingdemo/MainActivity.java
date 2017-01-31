@@ -30,7 +30,7 @@ import java.util.Date;
 import java.util.Locale;
 
 public class MainActivity extends Activity {
-    // unchanged stuff
+    // tmp fixed
     protected static final String remoteIP = "128.111.68.220";
     protected static final String remoteMAC = "18:03:73:c8:86:52";
     protected static final String sshlinklab = "ssh linklab@hotcrp.cs.ucsb.edu"
@@ -38,6 +38,7 @@ public class MainActivity extends Activity {
     protected static final String sshlinklablocal = "ssh linklab@" + remoteIP
             + " -i /data/.ssh/id_rsa -o StrictHostKeyChecking=no";
     protected static final String udpserver_pathport = "~/mobileRDMABeach/UDPServer 32000 ";
+    // unchanged stuff
     protected static final String binaryFolderPath = "/data/local/tmp/";
     protected static final String binary_tcpdump = "tcpdump";
     private static final String TAG = "MainActivity";
@@ -135,9 +136,7 @@ public class MainActivity extends Activity {
             Runtime.getRuntime().exec("su -c killall -9 " + binary_RX_NormalUDP).waitFor();
             Runtime.getRuntime().exec("su -c killall -9 " + binary_RX_Splice).waitFor();
             Runtime.getRuntime().exec("su -c killall -9 " + binary_RX_RawNormal).waitFor();
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
+        } catch (InterruptedException | IOException e) {
             e.printStackTrace();
         }
     }
@@ -196,7 +195,7 @@ public class MainActivity extends Activity {
 
     /**
      * start the record
-     * @param myflag
+     * @param myflag:
      */
     protected void startRecording(boolean myflag) {
         final boolean flagRecv = myflag;
@@ -275,9 +274,7 @@ public class MainActivity extends Activity {
                                     Runtime.getRuntime().exec(
                                             "su -c echo 0 > /sys/class/lcd/panel/lcd_power")
                                             .waitFor();
-                                } catch (InterruptedException e) {
-                                    e.printStackTrace();
-                                } catch (IOException e) {
+                                } catch (InterruptedException | IOException e) {
                                     e.printStackTrace();
                                 }
                                 myHandler.post(new Runnable() {
@@ -311,9 +308,7 @@ public class MainActivity extends Activity {
 //                                            }
 //                                        });
 //                                    }
-                                } catch (InterruptedException e) {
-                                    e.printStackTrace();
-                                } catch (IOException e) {
+                                } catch (InterruptedException | IOException e) {
                                     e.printStackTrace();
                                 }
                                 // start iteration

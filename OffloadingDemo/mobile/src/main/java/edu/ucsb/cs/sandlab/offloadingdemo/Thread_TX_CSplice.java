@@ -19,6 +19,7 @@ class Thread_TX_CSplice implements Runnable {
 
     @Override
     public void run() {
+
         // prevent multiple runs
         if (MainActivity.isRunning_TX_Splice)
             return;
@@ -29,8 +30,6 @@ class Thread_TX_CSplice implements Runnable {
         String stdout;
         BufferedReader stdout_buf, error_buf;
         String[] commd = new String[3];
-
-        MainActivity.isRunning_TX_Splice = true;
 
         // get the right command
         commd[0] = "su";
