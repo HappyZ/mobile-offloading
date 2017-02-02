@@ -29,7 +29,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.Locale;
 
-public class MainActivity extends Activity {
+class MainActivity extends Activity {
     // tmp fixed
     protected static final String remoteIP = "128.111.68.220";
     protected static final String remoteMAC = "18:03:73:c8:86:52";
@@ -57,8 +57,6 @@ public class MainActivity extends Activity {
     private Button btn_startTransmit, btn_startReceive;
     private Button btn_setByte2send, btn_setRepeatTimes, btn_setTCPDumpInterface,
             btn_clearStatus, btn_setLogFreq, btn_setOthers;
-    private CharSequence[] existedItems;
-    private CharSequence[] existedItemsThrpt;
     private WifiManager wm;
     private Intent intentSSLogger;
     protected static int coreNum = 1;
@@ -73,7 +71,7 @@ public class MainActivity extends Activity {
     protected static String RXportNum = "4444";
     protected static String outFolderPath;
     protected static String btn_click_time;
-    protected static String tcpdumpInterface = "wlan0";
+    protected static String tcpdumpInterface = "wlan0"; // default "wlan0"
     protected static String binary_TX_Normal;
     protected static String binary_TX_NormalUDP;
     protected static String binary_TX_Sendfile;
@@ -173,10 +171,10 @@ public class MainActivity extends Activity {
             } catch (IOException | InterruptedException e) {
                 e.printStackTrace();
             }
-            Toast.makeText(this, "Created a 2Gbits big file", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, R.string.txt_created_bigfile, Toast.LENGTH_LONG).show();
         }
         if (!missingFiles.equals("")) {
-            final String mFiles = "Failed to find following files:\n" + missingFiles;
+            final String mFiles = getString(R.string.err_filecheck_failed) + missingFiles;
             myHandler.post(new Runnable() {
                 @Override
                 public void run() {
@@ -202,7 +200,8 @@ public class MainActivity extends Activity {
         final ArrayList<Integer> selectedItems = new ArrayList<>();
 
         AlertDialog.Builder adb = new AlertDialog.Builder(MainActivity.this);
-        adb.setMultiChoiceItems(existedItems, null, new DialogInterface.OnMultiChoiceClickListener() {
+        adb.setMultiChoiceItems(Utilities.existedItems, null,
+                new DialogInterface.OnMultiChoiceClickListener() {
             @Override
             public void onClick(DialogInterface dialog, int which, boolean isChecked) {
                 if (which == 5 || (flagRecv && which == 2) || (mVersion < 21 && which == 3)) {
@@ -217,18 +216,19 @@ public class MainActivity extends Activity {
             }
         });
 
-        adb.setPositiveButton("Continue", new DialogInterface.OnClickListener() {
+        adb.setPositiveButton(R.string.txt_continue, new DialogInterface.OnClickListener() {
             //            Process su = null;
             @Override
             public void onClick(DialogInterface dialog, int which) {
                 if (selectedItems.size() < 1) {
-                    Toast.makeText(MainActivity.this, "Nothing is selected", Toast.LENGTH_SHORT)
+                    Toast.makeText(MainActivity.this, R.string.err_no_selection, Toast.LENGTH_SHORT)
                             .show();
                     return;
                 }
                 final ArrayList<Integer> selectedItemsThrpt = new ArrayList<>();
                 AlertDialog.Builder adb = new AlertDialog.Builder(MainActivity.this);
-                adb.setMultiChoiceItems(existedItemsThrpt, null, new DialogInterface.OnMultiChoiceClickListener() {
+                adb.setMultiChoiceItems(Utilities.existedItemsThrpt, null,
+                        new DialogInterface.OnMultiChoiceClickListener() {
                     @Override
                     public void onClick(DialogInterface dialog, int which, boolean isChecked) {
                         if (isChecked) {
@@ -238,25 +238,24 @@ public class MainActivity extends Activity {
                         }
                     }
                 });
-                adb.setPositiveButton("Go!", new DialogInterface.OnClickListener() {
+                adb.setPositiveButton(R.string.txt_go, new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
+
                         if (selectedItemsThrpt.size() < 1) {
                             Toast.makeText(
-                                    MainActivity.this, "Nothing is selected", Toast.LENGTH_SHORT)
-                                    .show();
+                                    MainActivity.this,
+                                    R.string.err_no_selection,
+                                    Toast.LENGTH_SHORT).show();
                             return;
                         }
+
                         if (isVerbose) {
                             Log.d(TAG, "selected variations " + selectedItemsThrpt);
                         }
+
                         Utilities.estimateTime(
                                 repeatCounts, selectedItems.size(), bytes2send, selectedItemsThrpt);
-
-                        // power management
-                        PowerManager powerManager = (PowerManager) getSystemService(POWER_SERVICE);
-                        final PowerManager.WakeLock wakelock = powerManager.newWakeLock(
-                                PowerManager.PARTIAL_WAKE_LOCK, "MyWakelockTag");
 
                         new Thread(new Runnable() {
                             @Override
@@ -264,19 +263,10 @@ public class MainActivity extends Activity {
                                 String[] commd = new String[3];
                                 commd[0] = "su";
                                 commd[1] = "&&";
-                                wakelock.acquire();
+
                                 // change screen brightness to 0
-//                                Settings.System.putInt(MainActivity.this.getContentResolver(),
-//                                        Settings.System.SCREEN_BRIGHTNESS, 0);
-                                final WindowManager.LayoutParams lp = getWindow().getAttributes();
-                                lp.screenBrightness = 0.0f;// 100 / 100.0f;
-                                try {
-                                    Runtime.getRuntime().exec(
-                                            "su -c echo 0 > /sys/class/lcd/panel/lcd_power")
-                                            .waitFor();
-                                } catch (InterruptedException | IOException e) {
-                                    e.printStackTrace();
-                                }
+                                Utilities.switchScreenStatus();
+
                                 myHandler.post(new Runnable() {
                                     @Override
                                     public void run() {
@@ -284,6 +274,7 @@ public class MainActivity extends Activity {
 //                                        getWindow().setAttributes(lp);
                                     }
                                 });
+
                                 // prepare
                                 try {
                                     killAllBinaries();
@@ -311,15 +302,17 @@ public class MainActivity extends Activity {
                                 } catch (InterruptedException | IOException e) {
                                     e.printStackTrace();
                                 }
+
                                 // start iteration
                                 for (int k = 0; k < selectedItemsThrpt.size(); ++k) {
                                     int myI = selectedItemsThrpt.get(k);
                                     currentBandwidth = Utilities.findCorrespondingThrpt(myI);
-//                                    RXportNum = Integer.toString(4445 - myI + 24);
+
                                     if (isVerbose) {
                                         Log.d(TAG, "bandwidth is set to " + currentBandwidth
                                                 + "\nRXportNum is set to " + RXportNum);
                                     }
+
                                     // start
                                     try {
                                         commd[2] = "cd " + outFolderPath
@@ -328,11 +321,12 @@ public class MainActivity extends Activity {
                                         commd[2] = "mkdir -p";
                                         for (int i = 0; i < selectedItems.size(); ++i) {
                                             commd[2] += " " + outFolderPath + "/"
-                                                    + existedItems[selectedItems.get(i)];
+                                                    + Utilities.existedItems[selectedItems.get(i)];
                                         }
-                                        Log.d(TAG, "commd: " + commd[2]);
+
                                         Runtime.getRuntime().exec(commd).waitFor();
                                         Thread.sleep(1000);
+
                                         // start repeating
                                         int waitTimeSec = 0;
                                         for (int i = 0; i < repeatCounts; ++i) {
@@ -460,10 +454,10 @@ public class MainActivity extends Activity {
                                                     Thread.sleep(Math.abs(waitTimeSec*1000 - UDPfinishTime));
                                                 }
                                                 commd[2] = "cd " + outFolderPath + " && mv *" + btn_click_time
-                                                        + "* " + existedItems[selectedItems.get(j)] + "/";
+                                                        + "* " + Utilities.existedItems[selectedItems.get(j)] + "/";
                                                 Runtime.getRuntime().exec(commd).waitFor();
                                                 Log.d(TAG, "Finished " + (currentBandwidth / 1000000.0) + "Mbps, "
-                                                        + i + "th repeat on " + existedItems[selectedItems.get(j)]
+                                                        + (i + 1) + "th repeat on " + Utilities.existedItems[selectedItems.get(j)]
                                                         + ", t="+reportedFinishTime+"ms");
                                                 Thread.sleep(5000);
                                             }
@@ -471,10 +465,10 @@ public class MainActivity extends Activity {
                                         // parse and zip it
                                         for (int i = 0; i < selectedItems.size(); ++i) {
                                             if (Utilities.parseCPUforFolder(
-                                                    (String) existedItems[selectedItems.get(i)])) {
+                                                    (String) Utilities.existedItems[selectedItems.get(i)])) {
                                                 String tarName = (
                                                         (flagRecv) ? "download_" : "upload_")
-                                                        + existedItems[selectedItems.get(i)] + "_"
+                                                        + Utilities.existedItems[selectedItems.get(i)] + "_"
                                                         + (bytes2send / 1024) + "KB_"
                                                         + repeatCounts + "repeats_thrpt_"
                                                         + (currentBandwidth == -1 ? "Unlimited" :
@@ -484,13 +478,13 @@ public class MainActivity extends Activity {
                                                             .format(new Date()))
                                                         + ".tar.gz";
                                                 commd[2] = "cd " + outFolderPath + "/"
-                                                        + existedItems[selectedItems.get(i)]
+                                                        + Utilities.existedItems[selectedItems.get(i)]
                                                         + " && busybox tar -czf ../"
                                                         + tarName + " *";
                                                 Runtime.getRuntime().exec(commd).waitFor();
                                             } else {
                                                 final CharSequence failedFolderName =
-                                                        existedItems[selectedItems.get(i)];
+                                                        Utilities.existedItems[selectedItems.get(i)];
                                                 myHandler.post(new Runnable() {
                                                     @Override
                                                     public void run() {
@@ -506,23 +500,13 @@ public class MainActivity extends Activity {
                                     }
                                 }
                                 // change screen brightness back
-                                wakelock.release();
-//                                Settings.System.putInt(MainActivity.this.getContentResolver(),
-//                                        Settings.System.SCREEN_BRIGHTNESS, 200);
-                                lp.screenBrightness = 50;// 50 / 100.0f;
-                                try {
-                                    Runtime.getRuntime().exec(
-                                            "su -c echo 1 > /sys/class/lcd/panel/lcd_power")
-                                            .waitFor();
-                                } catch (InterruptedException | IOException e) {
-                                    e.printStackTrace();
-                                }
+                                Utilities.switchScreenStatus();
+
                                 // msg indicating all done
                                 myHandler.post(new Runnable() {
                                     @Override
                                     public void run() {
                                         txt_results.append("All Done\n");
-                                        getWindow().setAttributes(lp);
                                     }
                                 });
                             }
@@ -545,7 +529,7 @@ public class MainActivity extends Activity {
         // must have root privilege in order to run
         try {
             Runtime.getRuntime().exec("su");
-            Toast.makeText(MainActivity.this, "Remember to silent SuperUser", Toast.LENGTH_SHORT)
+            Toast.makeText(MainActivity.this, R.string.txt_silentsu, Toast.LENGTH_SHORT)
                     .show();
         } catch (Throwable e) {
             Toast.makeText(this, R.string.warn_root, Toast.LENGTH_LONG).show();
@@ -556,11 +540,11 @@ public class MainActivity extends Activity {
 
         // permission error
         if (!Utilities.canWriteOnExternalStorage()) {
-            Log.d(TAG, "Permission error: cannot write on external storage.");
+            Log.d(TAG, getString(R.string.err_writepermission));
             MainActivity.myHandler.post(new Runnable() {
                 @Override
                 public void run() {
-                    MainActivity.txt_results.append("Can't write on external storage!\n");
+                    MainActivity.txt_results.append(getString(R.string.err_writepermission) + "\n");
                 }
             });
         }
@@ -572,26 +556,9 @@ public class MainActivity extends Activity {
 
         // sslogger intent
         intentSSLogger = new Intent(this, SSLogger.class);
-        // grab WiFi service and check if wifi is enabled
-        wm = (WifiManager) this.getSystemService(WIFI_SERVICE);
-        isUsingWifi = wm.isWifiEnabled();
+
         Utilities.getSelfIdentity(tcpdumpInterface, true);
-        // predefined selections
-        existedItems = new CharSequence[] {
-                "Socket_Normal", "Socket_NormalUDP", "Socket_Sendfile",
-                "Socket_Splice", "RawSocket_Normal"
-        };
-        existedItemsThrpt = new CharSequence[]{
-                "800Mbps", "760Mbps", "720Mbps", "680Mbps", "640Mbps", "600Mbps", "560Mbps",// 0-6
-                "520Mbps", "480Mbps", "440Mbps", "400Mbps", "360Mbps", "320Mbps", "280Mbps",// 7-13
-                "240Mbps", "200Mbps", "160Mbps", "120Mbps", "80Mbps",                       // 14-18
-                "76Mbps", "72Mbps", "68Mbps", "64Mbps", "60Mbps", "56Mbps", "52Mbps",       // 19-25
-                "48Mbps", "44Mbps", "40Mbps", "36Mbps", "32Mbps", "28Mbps", "24Mbps",       // 26-32
-                "20Mbps", "16Mbps", "12Mbps", "8Mbps",                                      // 33-36
-                "6Mbps", "5Mbps", "4Mbps", "3Mbps", "2Mbps", "1Mbps",                       // 37-42
-                "800Kbps", "600Kbps", "400Kbps", "200Kbps",                                 // 43-46
-                "Unlimited",                                                                // 47
-        };
+
         // binary executables to run
         binary_TX_Normal = "client_send_normaltcp";
         binary_TX_NormalUDP = "client_send_normaludp";
@@ -602,6 +569,7 @@ public class MainActivity extends Activity {
         binary_RX_NormalUDP = "client_recv_normaludp";
         binary_RX_Splice = "client_recv_normaltcp_splice";
         binary_RX_RawNormal = "client_recv_bypassl3";
+
         // get number of cores
         coreNum = Utilities.getNumCores();
 
@@ -609,7 +577,7 @@ public class MainActivity extends Activity {
         outFolderPath = Environment.getExternalStorageDirectory().getAbsolutePath() + "/SSLogger";
         if (!Utilities.dirExist(outFolderPath, true)) {
             // checked and cannot create this folder
-            Toast.makeText(this, "Cannot create folder!!!", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, R.string.err_mkdir_failed, Toast.LENGTH_LONG).show();
         }
 
         // elements in the page
@@ -623,7 +591,12 @@ public class MainActivity extends Activity {
         btn_setLogFreq = (Button) findViewById(R.id.btn_setLogFreq);
         btn_clearStatus = (Button) findViewById(R.id.btn_clearStatus);
 
-        txt_results.append(isUsingWifi?getString(R.string.stat_wifion):getString(R.string.stat_wifioff));
+        // grab WiFi service and check if wifi is enabled
+        wm = (WifiManager) this.getSystemService(WIFI_SERVICE);
+        isUsingWifi = wm.isWifiEnabled();
+        txt_results.append(
+                (isUsingWifi ? getString(R.string.stat_wifion) : getString(R.string.stat_wifioff)));
+
         // click listener
         btn_startTransmit.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -683,6 +656,7 @@ public class MainActivity extends Activity {
                 mDialog.create().show();
             }
         });
+
         btn_setRepeatTimes.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -709,6 +683,7 @@ public class MainActivity extends Activity {
                 mDialog.create().show();
             }
         });
+
         btn_setTCPDumpInterface.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -765,6 +740,7 @@ public class MainActivity extends Activity {
                 mDialog.create().show();
             }
         });
+
         btn_setOthers.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -845,6 +821,7 @@ public class MainActivity extends Activity {
                 adb.create().show();
             }
         });
+
         btn_clearStatus.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -856,6 +833,7 @@ public class MainActivity extends Activity {
                 });
             }
         });
+
         btn_setLogFreq.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {

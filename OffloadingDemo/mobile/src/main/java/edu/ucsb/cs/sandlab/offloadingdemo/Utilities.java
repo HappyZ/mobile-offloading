@@ -3,6 +3,7 @@ package edu.ucsb.cs.sandlab.offloadingdemo;
 import android.Manifest;
 import android.app.Activity;
 import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Environment;
 import android.support.v4.app.ActivityCompat;
 import android.util.Log;
@@ -26,13 +27,34 @@ import java.util.Locale;
  * Created by yanzi on 10/1/15.
  * Updated by yanzi on 01/27/2017
  */
-public class Utilities {
+class Utilities {
     private static final String TAG = "Utilities";
 
     // variables
     static int oneMB = 1048576;
     static String myInetIP = null;
     static String myMAC = null;
+    private static boolean screenIsOff = false;
+    private static int screenBrightness = 1;
+
+    // selections
+
+    // predefined selections
+    static CharSequence[] existedItems = new CharSequence[] {
+        "Socket_Normal", "Socket_NormalUDP", "Socket_Sendfile", "Socket_Splice", "RawSocket_Normal"
+    };
+    static CharSequence[] existedItemsThrpt = new CharSequence[]{
+        "800Mbps", "760Mbps", "720Mbps", "680Mbps", "640Mbps", "600Mbps", "560Mbps",// 0-6
+        "520Mbps", "480Mbps", "440Mbps", "400Mbps", "360Mbps", "320Mbps", "280Mbps",// 7-13
+        "240Mbps", "200Mbps", "160Mbps", "120Mbps", "80Mbps",                       // 14-18
+        "76Mbps", "72Mbps", "68Mbps", "64Mbps", "60Mbps", "56Mbps", "52Mbps",       // 19-25
+        "48Mbps", "44Mbps", "40Mbps", "36Mbps", "32Mbps", "28Mbps", "24Mbps",       // 26-32
+        "20Mbps", "16Mbps", "12Mbps", "8Mbps",                                      // 33-36
+        "6Mbps", "5Mbps", "4Mbps", "3Mbps", "2Mbps", "1Mbps",                       // 37-42
+        "800Kbps", "600Kbps", "400Kbps", "200Kbps",                                 // 43-46
+        "Unlimited",                                                                // 47
+    };
+
 
     // Storage Permissions
     private static final int REQUEST_EXTERNAL_STORAGE = 1;
@@ -42,6 +64,60 @@ public class Utilities {
     };
 
 
+    /**
+     * switch the screen on/off
+     */
+    static void switchScreenStatus() {
+        String fp_brightness;
+        String device_name = getDeviceName();
+
+        Log.d(TAG, "device name: " + device_name);
+
+        if (device_name.equals("shamu")) {
+            fp_brightness = "/sys/class/leds/lcd-backlight/brightness";
+        } else {
+            fp_brightness = "/sys/class/lcd/panel/lcd_power";
+        }
+
+        if (!screenIsOff) {
+            Process proc;
+            String stdout;
+            BufferedReader stdout_buf;
+            try {
+                proc = Runtime.getRuntime().exec(
+                        "su -c cat " + fp_brightness);
+                proc.waitFor();
+                stdout_buf = new BufferedReader(new InputStreamReader(
+                        proc.getInputStream()));
+                stdout = stdout_buf.readLine();
+                if (stdout != null) {
+                    screenBrightness = Integer.parseInt(stdout);
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+
+        Log.d(TAG, "original screen brightness: " + screenBrightness);
+
+        try {
+            Runtime.getRuntime().exec(
+                    "su -c echo " + (screenIsOff ? screenBrightness : "0") + " > " + fp_brightness)
+                    .waitFor();
+        } catch (InterruptedException | IOException e) {
+            e.printStackTrace();
+        }
+
+        screenIsOff = !screenIsOff;
+    }
+
+    /**
+     * get the name of device (product name)
+     * @return String
+     */
+    static String getDeviceName() {
+        return Build.PRODUCT;
+    }
 
     /**
      * Android 6.0 + required
@@ -73,6 +149,7 @@ public class Utilities {
         String state = Environment.getExternalStorageState();
         return Environment.MEDIA_MOUNTED.equals(state);
     }
+
 
     /**
      * get the ip and mac addresses
@@ -150,6 +227,7 @@ public class Utilities {
         Log.d(TAG, "myIP: " + myInetIP);
     }
 
+
     /**
      * parse binary file output
      * @param output:
@@ -162,6 +240,7 @@ public class Utilities {
         }
         return -1;
     }
+
 
     /**
      * get the number of cores of device
@@ -204,6 +283,7 @@ public class Utilities {
         }
     }
 
+
     /**
      * get pid of the binary process
      * @param inName    the name of process
@@ -244,6 +324,7 @@ public class Utilities {
         return -1;
     }
 
+
     /**
      * check if a file exists
      * @param myFile:
@@ -253,6 +334,7 @@ public class Utilities {
         File file = new File(myFile);
         return file.exists() && file.isFile();
     }
+
 
     /**
      * check if a directory exists
@@ -264,6 +346,7 @@ public class Utilities {
         File file = new File(myDirectory);
         return (file.exists() && file.isDirectory()) || (createIfNot && file.mkdirs());
     }
+
 
     /**
      * post parse CPU for a folder
@@ -424,11 +507,13 @@ public class Utilities {
             return (800 - ((myI - 43) * 200)) * 1000;
         } else { // default unlimited
             if (MainActivity.isLocal)
-                return 8 * 100000000; // for loopback, the unlimited shouldn't be really unlimited..
+                // for loopback, the unlimited shouldn't be really unlimited..
+                return 8 * 100000000;
             else
                 return -1;
         }
     }
+
 
     /**
      * Estimate how much time left
@@ -444,10 +529,12 @@ public class Utilities {
 
         if (MainActivity.isLocal) {
             for (int k = 0; k < selectedItemsThrpt.size(); ++k)
-                time += (Math.max(totalBytes / findCorrespondingThrpt(selectedItemsThrpt.get(k)) + 20, 20));
+                time += (Math.max(totalBytes / findCorrespondingThrpt(selectedItemsThrpt.get(k))
+                        + 20, 20));
         } else {
             for (int k = 0; k < selectedItemsThrpt.size(); ++k)
-                time += (Math.max(totalBytes / findCorrespondingThrpt(selectedItemsThrpt.get(k)) + 20, 60));
+                time += (Math.max(totalBytes / findCorrespondingThrpt(selectedItemsThrpt.get(k))
+                        + 20, 60));
         }
 
         time = (time + 15) * numSelectedItems * numRepeats * 1000;

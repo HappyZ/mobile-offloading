@@ -10,4 +10,12 @@
     <string name="warn_root">Not rooted!! Must be rooted!</string>
     <string name="stat_wifion">WiFi is ON!\n</string>
     <string name="stat_wifioff">WiFi is NOT On!\n</string>
+    <string name="txt_silentsu">Remember to silent SuperUser</string>
+    <string name="err_writepermission">Error: cannot write to external storage.</string>
+    <string name="err_mkdir_failed">Error: cannot create folder!!!</string>
+    <string name="txt_created_bigfile">Created a 2GB big file</string>
+    <string name="err_filecheck_failed">Failed to find following files:\n</string>
+    <string name="err_no_selection">Nothing is selected</string>
+    <string name="txt_go">Go!</string>
+    <string name="txt_continue">Continue</string>
 </resources>
