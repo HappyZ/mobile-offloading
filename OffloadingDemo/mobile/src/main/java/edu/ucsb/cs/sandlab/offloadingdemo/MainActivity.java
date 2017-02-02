@@ -64,7 +64,7 @@ class MainActivity extends Activity {
     protected static int UDPfinishTime = 0;
     protected static double reportedFinishTime = 0.0;
     protected static int repeatCounts = 3;
-    protected static int bytes2send = 10 * Utilities.oneMB; // default 10MB
+    protected static int bytes2send = 100 * Utilities.oneMB; // default 100MB
     protected static int currentBandwidth = -1; // bps, default is -1, indicating unlimited
     protected static TextView txt_results;
     protected static Handler myHandler;
