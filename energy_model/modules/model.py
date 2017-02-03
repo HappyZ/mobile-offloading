@@ -15,7 +15,7 @@ class Model():
     The energy model module
     '''
 
-    def __init__(self, isDebuging=False, use_uAh=False):
+    def __init__(self, isDebuging=False, unit="mW"):
         self.freqs = []
         self.cpu_single_core = {}
         self.cpu_multi_core = {}
@@ -38,14 +38,12 @@ class Model():
         '''
         self.DEBUG = isDebuging
         self.logger = None
+        self.voltage = 1
+        self.unit = unit
         if isDebuging:
             self.logger = EmptyLogger("Model", printout=True)
-        if use_uAh:
-            self._ratio_uAh_over_mAs = 5 / 18.0
-        else:
-            self._ratio_uAh_over_mAs = 1.0
 
-    def load(self, productname, dir="../models/"):
+    def load(self, productname, dir="./models/"):
         self.voltage = getVoltage(productname)
         filepath = "{0}/{1}.xml".format(dir, productname)
         if not os.path.isfile(filepath):
@@ -142,10 +140,30 @@ class Model():
         # if self.DEBUG:
         #     self.logger.debug(self.freqs)
 
+    def get_final_energy(self, current, time):
+        '''
+        @param current: mA
+        @param time: s
+        @return defined energy with unit conversion
+        '''
+        if 'W' in self.unit:
+            tmp = current * self.voltage
+        elif 'J' in self.unit:
+            tmp = current * self.voltage * time
+        elif 'A' in self.unit:
+            tmp = current
+        if 'm' == self.unit[0]:
+            if 'h' == self.unit[-1]:
+                return tmp * time / 3600.0
+            return tmp
+        else:
+            return tmp / 1000.0
+
     def get_cpu_energy(self, time_diff, freq, util):
         '''
         @param freq: list of cpu frequencies
         @param util: list of cpu utilization
+        @return: energy in desired unit, default is mW
         '''
         if len(freq) != len(util) or len(freq) < 1:
             self.logger.error("freq & util have different length!")
@@ -153,29 +171,31 @@ class Model():
         current = 0
         if len(freq) > 1:
             db = self.cpu_multi_core
-            for i in xrange(len(freq)):
-                if freq[i] <= 0 or freq[i] not in db[i]:
-                    self.logger.error("freq outlier: {0}".format(freq[i]))
-                    self.logger.debug(db[i])
-                    continue
-                active_current = db[i][freq[i]][0]
-                idle_current = db[i][freq[i]][1]
-                current += util[i] * (active_current - idle_current) + \
-                    idle_current
         else:
             db = self.cpu_single_core
-            if freq[0] <= 0 or freq[0] not in db[0]:
-                self.logger.error("freq outlier: {0}".format(f))
-                self.logger.debug(db[i])
-            else:
-                active_current = db[0][freq[0]][0]
-                idle_current = db[0][freq[0]][1]
-                current = util[0] * (active_current - idle_current) + \
-                    idle_current
+        for i in xrange(len(freq)):
+            if freq[i] <= 0:
+                continue
+            if freq[i] not in db[i]:
+                minDiff = float("inf")
+                myJ = None
+                for j in xrange(len(self.freqs)):
+                    tmp = abs(self.freqs[j] - freq[i])
+                    if tmp < minDiff:
+                        minDiff = tmp
+                        myJ = j
+                closestFreq = self.freqs[j]
+                self.logger.debug("Freq outlier: {0}. ".format(freq[i]) +
+                                  "Use {0} instead.".format(closestFreq))
+                freq[i] = closestFreq
+            active_current = db[i][freq[i]][0]
+            idle_current = db[i][freq[i]][1]
+            current += util[i] * active_current + (1 - util[i]) * idle_current
         # derive energy
-        energy = current * time_diff * self._ratio_uAh_over_mAs
+        energy = self.get_final_energy(current, time_diff)
         if self.DEBUG:
-            self.logger.debug("cpu_energy: {0:.4f}".format(energy))
+            self.logger.debug(
+                "cpu_energy: {0:.4f}{1}".format(energy, self.unit))
         return energy
 
     def get_lte_prom_energy(self, time_diff, rssi, isTX=True):
@@ -215,24 +235,19 @@ class Model():
             self.logger.error("Current {0} is nothing!".format(current))
             sys.exit(-1)
         # derive energy
-        energy = current * time_diff * self._ratio_uAh_over_mAs
+        energy = self.get_final_energy(current, time_diff)
         if self.DEBUG:
-            self.logger.debug("wifi_active_energy: {0:.4f}".format(energy))
+            self.logger.debug(
+                "wifi_active_energy: {0:.4f}{1}".format(energy, self.unit))
         return energy
 
     def get_wifi_tail_energy(self, time_diff):
-        energy = (time_diff * self.net_wifi['tail']['0'][1] *
-                  self._ratio_uAh_over_mAs)
+        current = self.net_wifi['tail']['0'][1]
+        energy = self.get_final_energy(current, time_diff)
         if self.DEBUG:
-            self.logger.debug("wifi_tail_energy: {0:.4f}".format(energy))
+            self.logger.debug(
+                "wifi_active_energy: {0:.4f}{1}".format(energy, self.unit))
         return energy
 
 if __name__ == "__main__":
     print "Usage: from model import *"
-    # debugging..
-    myObj = Model(isDebuging=True)
-    # myObj.load(sys.argv[1])
-    myObj.load("shamu")
-    myObj.get_wifi_tail_energy(1)
-    myObj.get_wifi_active_energy(1, -60, isTX=False)
-    myObj.get_cpu_energy(1, [1036800, 422400], [0, 1])
