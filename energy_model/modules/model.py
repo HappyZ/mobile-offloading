@@ -15,7 +15,7 @@ class Model():
     The energy model module
     '''
 
-    def __init__(self, isDebuging=False, unit="mW"):
+    def __init__(self, isDebugging=False, unit="mW"):
         self.freqs = []
         self.cpu_single_core = {}
         self.cpu_multi_core = {}
@@ -36,12 +36,26 @@ class Model():
                         { 'index': [rssi, current, length], ...},
                     }
         '''
-        self.DEBUG = isDebuging
-        self.logger = None
         self.voltage = 1
         self.unit = unit
-        if isDebuging:
-            self.logger = EmptyLogger("Model", printout=True)
+
+        self.DEBUG = isDebugging
+        if self.DEBUG:
+            self.logger = EmptyLogger(
+                "Model", isDebugging=self.DEBUG, printout=True)
+
+        if 'A' in self.unit:
+            tmp = self.unit.replace('A', 'W')
+            self.logger.info(
+                "Will use power instead: {0} -> {1}".format(tmp, unit))
+            self.unit = tmp
+        if 'W' in self.unit:
+            self.using_power = True
+        else:
+            self.using_power = False
+            self.logger.info(
+                "{0} will cause some loss of info like instant power".format(
+                    self.unit))
 
     def load(self, productname, dir="./models/"):
         self.voltage = getVoltage(productname)
@@ -150,11 +164,11 @@ class Model():
             tmp = current * self.voltage
         elif 'J' in self.unit:
             tmp = current * self.voltage * time
-        elif 'A' in self.unit:
-            tmp = current
+        else:
+            self.logger.error(
+                "Unit {0} not supported!".format(self.unit))
+            sys.exit(-1)
         if 'm' == self.unit[0]:
-            if 'h' == self.unit[-1]:
-                return tmp * time / 3600.0
             return tmp
         else:
             return tmp / 1000.0
@@ -195,7 +209,8 @@ class Model():
         energy = self.get_final_energy(current, time_diff)
         if self.DEBUG:
             self.logger.debug(
-                "cpu_energy: {0:.4f}{1}".format(energy, self.unit))
+                "duration: {0:.4f}s, cpu_energy: {1:.4f}{2}".format(
+                    time_diff, energy, self.unit))
         return energy
 
     def get_lte_prom_energy(self, time_diff, rssi, isTX=True):

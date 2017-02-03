@@ -33,9 +33,13 @@ class EmptyLogger:
     logger base
     '''
     def __init__(
-        self, loggerTag, level=logging.DEBUG, logPath=None, printout=False
+        self, loggerTag, isDebugging=False, logPath=None, printout=True
     ):
         self.myLogger = logging.getLogger(loggerTag)
+        if isDebugging:
+            level = logging.DEBUG
+        else:
+            level = logging.INFO
         self.myLogger.setLevel(level)
         self.ch_file = None
         self.ch_stream = None
@@ -43,13 +47,12 @@ class EmptyLogger:
             '%(asctime)s %(name)s %(levelname)s, %(message)s')
         if logPath is not None:
             self.ch_file = logging.FileHandler(logPath, 'w')
-            self.ch_file.setLevel(level)
+            self.ch_file.setLevel(logging.DEBUG)
             self.ch_file.setFormatter(formatter)
             self.myLogger.addHandler(self.ch_file)
         if printout:
             self.ch_stream = logging.StreamHandler()
             self.ch_stream.setLevel(level)
-            # ch_stream.setLevel(level)
             self.ch_stream.setFormatter(formatter)
             self.myLogger.addHandler(self.ch_stream)
         self.myLogger.info('logging started')
