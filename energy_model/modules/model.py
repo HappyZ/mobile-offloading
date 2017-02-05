@@ -36,6 +36,8 @@ class Model():
                         { 'index': [rssi, current, length], ...},
                     }
         '''
+        self.wifi_min_spike_interval = 0.03
+        self.wifi_timeout = 0.21
         self.voltage = 1
         self.unit = unit
 
