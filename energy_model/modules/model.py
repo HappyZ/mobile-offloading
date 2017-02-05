@@ -40,9 +40,8 @@ class Model():
         self.unit = unit
 
         self.DEBUG = isDebugging
-        if self.DEBUG:
-            self.logger = EmptyLogger(
-                "Model", isDebugging=self.DEBUG, printout=True)
+        self.logger = EmptyLogger(
+            "Model", isDebugging=self.DEBUG, printout=True)
 
         if 'A' in self.unit:
             tmp = self.unit.replace('A', 'W')
@@ -53,9 +52,6 @@ class Model():
             self.using_power = True
         else:
             self.using_power = False
-            self.logger.info(
-                "{0} will cause some loss of info like instant power".format(
-                    self.unit))
 
     def load(self, productname, dir="./models/"):
         self.voltage = getVoltage(productname)
@@ -114,8 +110,6 @@ class Model():
                         int(tst.attrib['tailpwr']),
                         int(tst.attrib['taillen'])]
 
-        # print net_node
-
     def parseCPUMultiCore(self, node):
         for core in node.findall("core"):
             if core.attrib['mode'] == 'multicore':
@@ -130,7 +124,6 @@ class Model():
                         {int(core.attrib['freq']):
                             [int(core.attrib['active']),
                                 int(core.attrib['idle'])]}
-        # print self.cpu_multi_core
 
     def parseCPUSingleCore(self, node):
         for core in node.findall("core"):
@@ -146,13 +139,10 @@ class Model():
                         {int(core.attrib['freq']):
                             [int(core.attrib['active']),
                                 int(core.attrib['idle'])]}
-        # print self.cpu_single_core
 
     def parseFreqs(self, node):
         for freq in node.findall("freq"):
             self.freqs.append(int(freq.attrib['val']))
-        # if self.DEBUG:
-        #     self.logger.debug(self.freqs)
 
     def get_final_energy(self, current, time):
         '''
@@ -207,10 +197,9 @@ class Model():
             current += util[i] * active_current + (1 - util[i]) * idle_current
         # derive energy
         energy = self.get_final_energy(current, time_diff)
-        if self.DEBUG:
-            self.logger.debug(
-                "duration: {0:.4f}s, cpu_energy: {1:.4f}{2}".format(
-                    time_diff, energy, self.unit))
+        self.logger.debug(
+            "duration: {0:.4f}s, cpu_energy: {1:.4f}{2}".format(
+                time_diff, energy, self.unit))
         return energy
 
     def get_lte_prom_energy(self, time_diff, rssi, isTX=True):
@@ -251,17 +240,15 @@ class Model():
             sys.exit(-1)
         # derive energy
         energy = self.get_final_energy(current, time_diff)
-        if self.DEBUG:
-            self.logger.debug(
-                "wifi_active_energy: {0:.4f}{1}".format(energy, self.unit))
+        self.logger.debug(
+            "wifi_active_energy: {0:.4f}{1}".format(energy, self.unit))
         return energy
 
     def get_wifi_tail_energy(self, time_diff):
         current = self.net_wifi['tail']['0'][1]
         energy = self.get_final_energy(current, time_diff)
-        if self.DEBUG:
-            self.logger.debug(
-                "wifi_active_energy: {0:.4f}{1}".format(energy, self.unit))
+        self.logger.debug(
+            "wifi_active_energy: {0:.4f}{1}".format(energy, self.unit))
         return energy
 
 if __name__ == "__main__":
