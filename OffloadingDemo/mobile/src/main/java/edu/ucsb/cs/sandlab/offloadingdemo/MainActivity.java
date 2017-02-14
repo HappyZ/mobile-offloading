@@ -10,12 +10,9 @@ import android.net.wifi.WifiManager;
 import android.os.Build;
 import android.os.Environment;
 import android.os.Handler;
-import android.os.PowerManager;
-import android.provider.Settings;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
-import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -31,12 +28,8 @@ import java.util.Locale;
 
 class MainActivity extends Activity {
     // tmp fixed
-    protected static final String remoteIP = "128.111.68.220";
-    protected static final String remoteMAC = "18:03:73:c8:86:52";
-    protected static final String sshlinklab = "ssh linklab@hotcrp.cs.ucsb.edu"
-            + " -i /data/.ssh/id_rsa -o StrictHostKeyChecking=no";
-    protected static final String sshlinklablocal = "ssh linklab@" + remoteIP
-            + " -i /data/.ssh/id_rsa -o StrictHostKeyChecking=no";
+//    protected static final String remoteIP = "128.111.68.220";
+//    protected static final String remoteMAC = "18:03:73:c8:86:52";
     protected static final String udpserver_pathport = "~/mobileRDMABeach/UDPServer 32000 ";
     // unchanged stuff
     protected static final String binaryFolderPath = "/data/local/tmp/";
@@ -44,6 +37,13 @@ class MainActivity extends Activity {
     private static final String TAG = "MainActivity";
     private static final int mVersion = Build.VERSION.SDK_INT;
     // the configs
+    protected static String remoteIP = "192.168.10.1";
+    protected static String remoteMAC = "f0:de:f1:0b:45:4a";
+    protected static String sshlinklab = "ssh linklab@hotcrp.cs.ucsb.edu"
+            + " -i /data/.ssh/id_rsa -o StrictHostKeyChecking=no";
+    protected static String sshlinklablocal = "ssh linklab@" + remoteIP
+            + " -i /data/.ssh/id_rsa -o StrictHostKeyChecking=no";
+    // default variables
     protected static boolean isForcingCPU0 = false;
     protected static boolean isVerbose = true;
     protected static boolean isLocal = false;
@@ -68,7 +68,6 @@ class MainActivity extends Activity {
     protected static int currentBandwidth = -1; // bps, default is -1, indicating unlimited
     protected static TextView txt_results;
     protected static Handler myHandler;
-    protected static String RXportNum = "4444";
     protected static String outFolderPath;
     protected static String btn_click_time;
     protected static String tcpdumpInterface = "wlan0"; // default "wlan0"
@@ -191,6 +190,7 @@ class MainActivity extends Activity {
         return true;
     }
 
+
     /**
      * start the record
      * @param myflag:
@@ -250,6 +250,14 @@ class MainActivity extends Activity {
                             return;
                         }
 
+                        if (isLocal) {
+                            Toast.makeText(
+                                    MainActivity.this,
+                                    R.string.err_unimplemented,
+                                    Toast.LENGTH_SHORT).show();
+                            return;
+                        }
+
                         if (isVerbose) {
                             Log.d(TAG, "selected variations " + selectedItemsThrpt);
                         }
@@ -257,6 +265,7 @@ class MainActivity extends Activity {
                         Utilities.estimateTime(
                                 repeatCounts, selectedItems.size(), bytes2send, selectedItemsThrpt);
 
+                        // TODO: take out the thread
                         new Thread(new Runnable() {
                             @Override
                             public void run() {
@@ -310,7 +319,8 @@ class MainActivity extends Activity {
 
                                     if (isVerbose) {
                                         Log.d(TAG, "bandwidth is set to " + currentBandwidth
-                                                + "\nRXportNum is set to " + RXportNum);
+                                                + "\nTCP_port is set to " + Utilities.TCP_port
+                                                + "\nUDP_port is set to " + Utilities.UDP_port);
                                     }
 
                                     // start
@@ -331,15 +341,22 @@ class MainActivity extends Activity {
                                         int waitTimeSec = 0;
                                         for (int i = 0; i < repeatCounts; ++i) {
                                             for (int j = 0; j < selectedItems.size(); ++j) {
-                                                if (flagRecv && (selectedItems.get(j) == 1 || selectedItems.get(j) == 4)) {
+                                                int whichItem = selectedItems.get(j);
+                                                if (flagRecv &&
+                                                        (whichItem == 1 || whichItem == 4)) {
+                                                    // 1 is udp, 4 is raw normal
                                                     if (isLocal) {
-                                                        waitTimeSec = (Math.max(bytes2send / currentBandwidth + 20, 20));
-                                                        Runtime.getRuntime().exec("su -c /data/local/tmp/UDPServer_mobile 32000 "
-                                                                + currentBandwidth + " " + waitTimeSec + " &").waitFor();
+//                                                        waitTimeSec = (Math.max(bytes2send / currentBandwidth + 20, 20));
+//                                                        Runtime.getRuntime().exec("su -c /data/local/tmp/UDPServer_mobile 32000 "
+//                                                                + currentBandwidth + " " + waitTimeSec + " &").waitFor();
                                                     } else {
-                                                        waitTimeSec = (Math.max(bytes2send / currentBandwidth + 20, 60));
-                                                        Process proc = Runtime.getRuntime().exec("su");
-                                                        DataOutputStream os = new DataOutputStream(proc.getOutputStream());
+                                                        waitTimeSec = Math.max(
+                                                                bytes2send / currentBandwidth + 20,
+                                                                60);
+                                                        Process proc = Runtime.getRuntime().exec(
+                                                                "su");
+                                                        DataOutputStream os = new DataOutputStream(
+                                                                proc.getOutputStream());
                                                         if (isUsingWifi) {
                                                             os.writeBytes(sshlinklablocal + "\n");
                                                             os.flush();
@@ -349,7 +366,10 @@ class MainActivity extends Activity {
                                                             os.flush();
                                                             Thread.sleep(10001);
                                                         }
-                                                        os.writeBytes(udpserver_pathport + currentBandwidth + " " + waitTimeSec + " &\n");
+                                                        os.writeBytes(
+                                                                udpserver_pathport +
+                                                                        currentBandwidth + " " +
+                                                                        waitTimeSec + " &\n");
                                                         os.flush();
                                                         Thread.sleep(1001);
                                                         os.writeBytes("exit\n");
@@ -363,7 +383,8 @@ class MainActivity extends Activity {
                                                     }
                                                 }
                                                 Thread.sleep(1000);
-                                                btn_click_time = Long.toString(System.currentTimeMillis());
+                                                btn_click_time = Long.toString(
+                                                        System.currentTimeMillis());
                                                 startService(intentSSLogger);
                                                 Thread.sleep(1000);
                                                 myServiceCheck();
@@ -458,7 +479,7 @@ class MainActivity extends Activity {
                                                 Runtime.getRuntime().exec(commd).waitFor();
                                                 Log.d(TAG, "Finished " + (currentBandwidth / 1000000.0) + "Mbps, "
                                                         + (i + 1) + "th repeat on " + Utilities.existedItems[selectedItems.get(j)]
-                                                        + ", t="+reportedFinishTime+"ms");
+                                                        + ", t="+reportedFinishTime+"s");
                                                 Thread.sleep(5000);
                                             }
                                         }

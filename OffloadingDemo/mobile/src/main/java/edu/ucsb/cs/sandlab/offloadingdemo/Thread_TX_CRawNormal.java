@@ -85,7 +85,7 @@ class Thread_TX_CRawNormal implements Runnable {
                     MainActivity.myHandler.post(new Runnable() {
                         @Override
                         public void run() {
-                            MainActivity.txt_results.append("Time: " + duration + "ms\n");
+                            MainActivity.txt_results.append("Time: " + duration + "s\n");
                         }
                     });
                 }

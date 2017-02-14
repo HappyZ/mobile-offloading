@@ -4,7 +4,6 @@ import android.util.Log;
 
 import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InputStreamReader;
 
 /**
@@ -39,7 +38,7 @@ class Thread_RX_CRawNormal implements Runnable {
         commd[2] = (MainActivity.isForcingCPU0?"taskset 1 ":"")
                 + MainActivity.binaryFolderPath + MainActivity.binary_RX_RawNormal
                 + " " + (MainActivity.isLocal ? Utilities.myInetIP : MainActivity.remoteIP)
-                + " " + MainActivity.RXportNum;
+                + " " + Utilities.UDP_port;
 
         Log.d("RX_RawNormal", "Start RX RawNormal");
 
@@ -84,7 +83,7 @@ class Thread_RX_CRawNormal implements Runnable {
                     MainActivity.myHandler.post(new Runnable() {
                         @Override
                         public void run() {
-                            MainActivity.txt_results.append("Time: " + duration + "ms\n");
+                            MainActivity.txt_results.append("Time: " + duration + "s\n");
                         }
                     });
                 }

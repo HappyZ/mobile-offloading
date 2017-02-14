@@ -4,7 +4,6 @@ import android.util.Log;
 
 import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InputStreamReader;
 
 /**
@@ -39,7 +38,7 @@ class Thread_TX_CSendfile implements Runnable {
                 + MainActivity.binaryFolderPath + MainActivity.binary_TX_Sendfile + " "
                 + MainActivity.bytes2send + " "
                 + (MainActivity.isLocal ? Utilities.myInetIP : MainActivity.remoteIP) + " "
-                + MainActivity.RXportNum + " "
+                + Utilities.TCP_port + " "
                 + ((MainActivity.currentBandwidth < 0) ? "" : String.valueOf(
                 MainActivity.currentBandwidth));
 
@@ -86,7 +85,7 @@ class Thread_TX_CSendfile implements Runnable {
                     MainActivity.myHandler.post(new Runnable() {
                         @Override
                         public void run() {
-                            MainActivity.txt_results.append("Time: " + duration + "ms\n");
+                            MainActivity.txt_results.append("Time: " + duration + "s\n");
                         }
                     });
                 }

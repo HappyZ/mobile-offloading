@@ -31,7 +31,9 @@ class Utilities {
     private static final String TAG = "Utilities";
 
     // variables
-    static int oneMB = 1048576;
+    static final int oneMB = 1048576;
+    static int TCP_port = 4444;
+    static int UDP_port = 8888;
     static String myInetIP = null;
     static String myMAC = null;
     private static boolean screenIsOff = false;
