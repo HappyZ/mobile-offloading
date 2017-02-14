@@ -86,8 +86,8 @@ class Model():
             for pst in prom.findall("promstate"):
                 net_node['prom'][pst.attrib['index']] = \
                     [int(pst.attrib['index']),
-                        int(pst.attrib['prompwr']),
-                        int(pst.attrib['promlen'])]
+                        float(pst.attrib['prompwr']),
+                        float(pst.attrib['promlen'])]
 
         active = node.find("active")
         if active is None:
@@ -96,8 +96,8 @@ class Model():
             net_node['active'] = {}
             for ast in active.findall("activestate"):
                 net_node['active'][int(ast.attrib['rssi'])] = \
-                    [int(ast.attrib['rxpwr']),
-                        int(ast.attrib['txpwr']),
+                    [float(ast.attrib['rxpwr']),
+                        float(ast.attrib['txpwr']),
                         float(ast.attrib['rxxput']),
                         float(ast.attrib['txxput'])]
 
@@ -109,8 +109,8 @@ class Model():
             for tst in tail.findall("tailstate"):
                 net_node['tail'][tst.attrib['index']] = \
                     [int(tst.attrib['index']),
-                        int(tst.attrib['tailpwr']),
-                        int(tst.attrib['taillen'])]
+                        float(tst.attrib['tailpwr']),
+                        float(tst.attrib['taillen'])]
 
     def parseCPUMultiCore(self, node):
         for core in node.findall("core"):
@@ -119,13 +119,13 @@ class Model():
                 if myid in self.cpu_multi_core:
                     myfreq = int(core.attrib['freq'])
                     self.cpu_multi_core[myid][myfreq] = \
-                        [int(core.attrib['active']),
-                            int(core.attrib['idle'])]
+                        [float(core.attrib['active']),
+                            float(core.attrib['idle'])]
                 else:
                     self.cpu_multi_core[myid] = \
                         {int(core.attrib['freq']):
-                            [int(core.attrib['active']),
-                                int(core.attrib['idle'])]}
+                            [float(core.attrib['active']),
+                                float(core.attrib['idle'])]}
 
     def parseCPUSingleCore(self, node):
         for core in node.findall("core"):
@@ -134,13 +134,13 @@ class Model():
                 if myid in self.cpu_single_core:
                     myfreq = int(core.attrib['freq'])
                     self.cpu_single_core[myid][myfreq] = \
-                        [int(core.attrib['active']),
-                            int(core.attrib['idle'])]
+                        [float(core.attrib['active']),
+                            float(core.attrib['idle'])]
                 else:
                     self.cpu_single_core[myid] = \
                         {int(core.attrib['freq']):
-                            [int(core.attrib['active']),
-                                int(core.attrib['idle'])]}
+                            [float(core.attrib['active']),
+                                float(core.attrib['idle'])]}
 
     def parseFreqs(self, node):
         for freq in node.findall("freq"):
