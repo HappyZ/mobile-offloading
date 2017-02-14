@@ -152,6 +152,8 @@ class Model():
         @param time: s
         @return defined energy with unit conversion
         '''
+        # self.logger.debug("current: {0}, time_diff: {1:.8f}".format(
+        #    current, time))
         if 'W' in self.unit:
             tmp = current * self.voltage
         elif 'J' in self.unit:
@@ -160,6 +162,7 @@ class Model():
             self.logger.error(
                 "Unit {0} not supported!".format(self.unit))
             sys.exit(-1)
+        # self.logger.debug("tmp: {0}".format(tmp, current * self.voltage))
         if 'm' == self.unit[0]:
             return tmp
         else:
@@ -197,12 +200,12 @@ class Model():
             active_current = db[i][freq[i]][0]
             idle_current = db[i][freq[i]][1]
             current += util[i] * active_current + (1 - util[i]) * idle_current
-        # derive energy
-        energy = self.get_final_energy(current, time_diff)
+        # derive power or energy
+        result = self.get_final_energy(current, time_diff)
         self.logger.debug(
             "duration: {0:.4f}s, cpu_energy: {1:.4f}{2}".format(
-                time_diff, energy, self.unit))
-        return energy
+                time_diff, result, self.unit))
+        return result
 
     def get_lte_prom_energy(self, time_diff, rssi, isTX=True):
         self.logger.error('TODO: not implemented yet')
@@ -233,25 +236,25 @@ class Model():
                 if rssi >= table_rssi[i]:
                     endp = self.net_wifi['active'][table_rssi[i-1]][currentIdx]
                     startp = self.net_wifi['active'][table_rssi[i]][currentIdx]
-                    rssi_diff = table_rssi[i-1] - table_rssi[i]
+                    rssi_diff = table_rssi[i - 1] - table_rssi[i]
                     current = (endp + 1.0 * (endp - startp) *
                                (rssi - table_rssi[i-1]) / rssi_diff)
                     break
         if current is None:
             self.logger.error("Current {0} is nothing!".format(current))
             sys.exit(-1)
-        # derive energy
-        energy = self.get_final_energy(current, time_diff)
-        self.logger.debug(
-            "wifi_active_energy: {0:.4f}{1}".format(energy, self.unit))
-        return energy
+        # derive power or energy
+        result = self.get_final_energy(current, time_diff)
+        # self.logger.debug(
+        #     "cpu_energy: {0:.4f}{1}".format(result, self.unit))
+        return result
 
     def get_wifi_tail_energy(self, time_diff):
         current = self.net_wifi['tail']['0'][1]
-        energy = self.get_final_energy(current, time_diff)
-        self.logger.debug(
-            "wifi_active_energy: {0:.4f}{1}".format(energy, self.unit))
-        return energy
+        result = self.get_final_energy(current, time_diff)
+        # self.logger.debug(
+        #     "cpu_energy: {0:.4f}{1}".format(result, self.unit))
+        return result
 
 if __name__ == "__main__":
     print "Usage: from model import *"
