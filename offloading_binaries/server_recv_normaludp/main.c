@@ -41,17 +41,21 @@ int main(int argc, char *argv[])
     socklen_t clilen;
     // for misc
     int ret;
+    unsigned char listenOnce = 0;
 
     signal(SIGPIPE, SIG_IGN);
     
     if (argc < 2)
     {
-        printf("Usage: %s <port> <[optional] filepath>\n", argv[0]);
+        printf("Usage: %s <port> <[optional] listenOnce ([0]/1)> <[optional] filepath>\n", argv[0]);
         exit(0);
     }
 
     port  = atoi(argv[1]);
 
+    if (argc > 2)
+        listenOnce = atoi(argv[2]);
+    
     // listen to socket
     listenfd = socket(AF_INET, SOCK_DGRAM, 0);
     // bind socket and listen
@@ -62,63 +66,74 @@ int main(int argc, char *argv[])
     bind(listenfd, (struct sockaddr *)&servaddr, sizeof(servaddr));
 
     // infinity loop to listen
-    printf("Waiting on port %d...\n", port);
-    // clear total_bytes_recv to 0
-    total_bytes_recv = 0;
 
-    // if instrument to write to a file
-    if (argc > 2)
-    {
-        fd = open(argv[2], O_WRONLY | O_CREAT | O_TRUNC);
-        if (fd == -1) {
-            fprintf(stderr, "! Unable to open file %s.\n", argv[2]);
-            close(listenfd);
-            exit(1);
-        }
-    }
-
-    // start timing
-    gettimeofday(&t_start, NULL);
-
-    // start receiving
     for (;;)
     {
-        clilen = sizeof(cliaddr);
+        printf("Waiting on port %d...\n", port);
 
-        // wait for one client and accept it once found
-        ret = recvfrom(listenfd, recvbuf, recvsize, 0, (struct sockaddr *)&cliaddr, &clilen);
-        printf("Accepted client at %s with %d len msg\n", inet_ntoa(cliaddr.sin_addr), ret);
+        // clear total_bytes_recv to 0
+        total_bytes_recv = 0;
 
-        if (ret <= 0)
+        // if instrument to write to a file
+        if (argc > 3)
         {
-            if (errno == 0)
-                break;
-            fprintf(stderr, "! Fail to recv: ret:%d, err:%d; quiting..\n", ret, errno);
-            exit(1);
+            fd = open(argv[3], O_WRONLY | O_CREAT | O_TRUNC);
+            if (fd == -1) {
+                fprintf(stderr, "! Unable to open file %s.\n", argv[3]);
+                close(listenfd);
+                if (listenOnce)
+                    break;
+                continue;
+            }
         }
 
-        // a "code" to indicate UDP is done
-        // printf("%d %d %d", (recvbuf[0] == '='), (recvbuf[1] == '?'), (recvbuf[0] == '!'));
-        if ((recvbuf[0] == '=') && (recvbuf[1] == '?') && (recvbuf[2] == '!'))
+        // start timing
+        gettimeofday(&t_start, NULL);
+
+        // start receiving
+        for (;;)
+        {
+            clilen = sizeof(cliaddr);
+
+            // wait for one client and accept it once found
+            ret = recvfrom(listenfd, recvbuf, recvsize, 0, (struct sockaddr *)&cliaddr, &clilen);
+            printf("Accepted client at %s with %d len msg\n", inet_ntoa(cliaddr.sin_addr), ret);
+
+            if (ret <= 0)
+            {
+                if (errno == 0)
+                    break;
+                fprintf(stderr, "! Fail to recv: ret:%d, err:%d; quiting..\n", ret, errno);
+                exit(1);
+            }
+
+            // a "code" to indicate UDP is done
+            // printf("%d %d %d", (recvbuf[0] == '='), (recvbuf[1] == '?'), (recvbuf[0] == '!'));
+            if ((recvbuf[0] == '=') && (recvbuf[1] == '?') && (recvbuf[2] == '!'))
+            {
+                if (argc > 3)
+                    close(fd);
+                break;
+            }
+
+            if (argc > 3)
+                write(fd, recvbuf, ret);
+
+            total_bytes_recv += ret;
+            // printf("total_bytes_recv %d\n", total_bytes_recv);
+
+        }
+        
+        // end timing
+        gettimeofday(&t_end, NULL);
+        elapsedTime = (t_end.tv_sec - t_start.tv_sec) + (t_end.tv_usec - t_start.tv_usec) / 1000000.0;
+        printf(
+            "recv(bytes):%d\nduration(s):%lf\nthroughput(bps):%lf\n",
+            total_bytes_recv, elapsedTime, total_bytes_recv * 8 / elapsedTime);
+
+        if (listenOnce)
             break;
-
-        if (argc > 2)
-            write(fd, recvbuf, ret);
-
-        total_bytes_recv += ret;
-        // printf("total_bytes_recv %d\n", total_bytes_recv);
-
     }
-    
-    if (argc > 2)
-        close(fd);
-
-    // end timing
-    gettimeofday(&t_end, NULL);
-    elapsedTime = (t_end.tv_sec - t_start.tv_sec) + (t_end.tv_usec - t_start.tv_usec) / 1000000.0;
-    printf(
-        "recv(bytes):%d\nduration(s):%lf\nthroughput(bps):%lf\n",
-        total_bytes_recv, elapsedTime, total_bytes_recv * 8 / elapsedTime);
 
     close(listenfd);
 
