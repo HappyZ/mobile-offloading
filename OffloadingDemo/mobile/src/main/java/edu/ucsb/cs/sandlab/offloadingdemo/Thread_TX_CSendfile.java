@@ -85,7 +85,8 @@ class Thread_TX_CSendfile implements Runnable {
                     MainActivity.myHandler.post(new Runnable() {
                         @Override
                         public void run() {
-                            MainActivity.txt_results.append("Time: " + duration + "s\n");
+                            MainActivity.txt_results.append(
+                                    "Sent " + sentBytes + "bytes in " + duration + "s\n");
                         }
                     });
                 }

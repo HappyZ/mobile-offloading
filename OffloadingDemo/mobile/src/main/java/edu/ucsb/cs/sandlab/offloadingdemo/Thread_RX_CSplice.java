@@ -82,7 +82,8 @@ class Thread_RX_CSplice implements Runnable {
                     MainActivity.myHandler.post(new Runnable() {
                         @Override
                         public void run() {
-                            MainActivity.txt_results.append("Time: " + duration + "s\n");
+                            MainActivity.txt_results.append(
+                                    "Received " + recvBytes + "bytes in " + duration + "s\n");
                         }
                     });
                 }

@@ -162,9 +162,7 @@ class SSLogger extends Service {
                                 + " -w " + MainActivity.outFolderPath + "/tcpdump_wifionly_"
                                 + MainActivity.btn_click_time + " &"
                 ).waitFor();
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            } catch (IOException e) {
+            } catch (InterruptedException | IOException e) {
                 e.printStackTrace();
             }
 

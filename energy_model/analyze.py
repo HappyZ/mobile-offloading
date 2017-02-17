@@ -62,6 +62,7 @@ class EnergyAnalyzer():
         # net_state: 'i': 'idle', 'a': 'active', 't': 'tail'
         self.net_start_time = -1
         self.net_end_time = -1
+        self.data_size = 0
         # WiFi
         self.wifi_rssi = []
         # LTE
@@ -239,6 +240,7 @@ class EnergyAnalyzer():
         self.logger.debug(self.wifi_rssi)
 
     def read_tcpdump_file(self, fp_tcpdump,
+                          size_limit=None,
                           isWiFi=False, isLTE=False, is3G=False):
         # TODO: currently WIFi only
         if not os.path.isfile(fp_tcpdump):
@@ -257,12 +259,13 @@ class EnergyAnalyzer():
         with open(fp_tcpdump, 'rU') as f:
             content = f.readlines()
         firstLine = True
+        total_bytes = 0
         # check the network status: idle, active, or tail
         net_state = 'a'  # active
         for line in content:
             tmp = None
-            for pattern in myPatterns:
-                myMatch = re.search(pattern, line)
+            for pattern_i in xrange(len(myPatterns)):
+                myMatch = re.search(myPatterns[pattern_i], line)
                 if myMatch is not None:
                     # [timestamp (s), src_ip, dst_ip, flag, seq_start, seq_end]
                     # or
@@ -273,9 +276,17 @@ class EnergyAnalyzer():
             if tmp is None:
                 self.logger.debug("nothing found in {0}".format(line.rstrip()))
                 continue
+            # if pattern_i == 1:
+            #     data_type = 'ack'
+            # else:
+            #     data_type = 'seq'
             data_len = 0
             if len(tmp) > 5:
                 data_len = int(tmp[5]) - int(tmp[4])
+                total_bytes += data_len
+                self.logger.debug("{0}".format(total_bytes))
+                if size_limit is not None and total_bytes > size_limit:
+                    break
             if firstLine:
                 firstLine = False
             elif self.data_tcpdump[-1][1] == 'i' \
@@ -307,8 +318,10 @@ class EnergyAnalyzer():
         # get the start and end time of network
         self.net_start_time = self.data_tcpdump[0][0]
         self.net_end_time = self.data_tcpdump[-2][0]  # true net end time
+        self.data_size = total_bytes
 
     def read_wifi_log(self, fp_tcpdump, tcpdump_filter="",
+                      size_limit=None,
                       fp_sslogger=None, delete_ori_tcpdump=True):
         self.logger.debug("clean up network data")
         self.clean_up_net_data()
@@ -332,7 +345,7 @@ class EnergyAnalyzer():
                     subprocess.call("rm {0}".format(fp_tcpdump), shell=True)
             fp_tcpdump += '.tcpdump'
         # read the file
-        self.read_tcpdump_file(fp_tcpdump, isWiFi=True)
+        self.read_tcpdump_file(fp_tcpdump, size_limit=size_limit, isWiFi=True)
         # parse sslogger
         self.logger.debug("parse sslogger file")
         if fp_sslogger is None:
@@ -434,22 +447,28 @@ class EnergyAnalyzer():
         # if write to file, first generate overview
         f = None
         if self.output_path is not None:
-            f = open("{0}/result_overview.csv".format(self.output_path), 'wb')
-            # first line description
-            f.write('#total_energy(mJ),total_time(s),avg_total_pwr(mW),' +
-                    'avg_logging_freq(s/record)')
-            if cpu:
-                f.write(',cpu_energy(mJ),' +
-                        'cpu_time(s),avg_cpu_pwr(mW),' +
-                        ','.join(
-                            ['avg_cpu{0}_util(%)'.format(
-                                x) for x in xrange(
-                                len(self.cpu_utils_avg) - 1)]) +
-                        ',avg_cpu_util(%)')
-            if wifi:
-                f.write(',wifi_energy(mJ),wifi_time(s),avg_wifi_pwr(mW),' +
-                        'wifi_active_energy(mJ),wifi_idel_energy(mJ)')
-            f.write('\n')
+            overview_fp = "{0}/result_overview.csv".format(self.output_path)
+            if os.path.isfile(overview_fp):
+                f = open(overview_fp, 'ab')
+            else:
+                f = open(overview_fp, 'wb')
+                # first line description
+                f.write('#data_size(MB),' +
+                        'total_energy(mJ),total_time(s),avg_total_pwr(mW),' +
+                        'avg_logging_freq(s/record)')
+                if cpu:
+                    f.write(',cpu_energy(mJ),' +
+                            'cpu_time(s),avg_cpu_pwr(mW),' +
+                            ','.join(
+                                ['avg_cpu{0}_util(%)'.format(
+                                    x) for x in xrange(
+                                    len(self.cpu_utils_avg) - 1)]) +
+                            ',avg_cpu_util(%)')
+                if wifi:
+                    f.write(',wifi_energy(mJ),wifi_time(s),avg_wifi_pwr(mW),' +
+                            'wifi_active_energy(mJ),wifi_idel_energy(mJ)')
+                f.write('\n')
+            f.write('{0:.2f},'.format(self.data_size / 1048576.0))
             f.write('{0:.8f},{1:.8f},{2:.8f},'.format(
                 total_energy, total_time, avg_power))
             f.write('{0:.8f}'.format(self.avg_log_freq))
@@ -498,8 +517,8 @@ class EnergyAnalyzer():
 
         # now generate instant cpu
         if cpu and self.output_path is not None:
-            f = open("{0}/result_cpu_instant.csv".format(
-                self.output_path), 'wb')
+            f = open("{0}/result_cpu_instant_{1:.2f}MB.csv".format(
+                self.output_path, self.data_size / 1048576.0), 'wb')
             # description
             num_of_cores = len(self.instant_freqs[0])
             f.write('#time(s),time_delta(s),' +
@@ -537,6 +556,7 @@ if __name__ == "__main__":
         output_path="./models/test/")
     myObj.read_wifi_log(
         tcpdumpFile,
+        size_limit=1024*1024*20,
         fp_sslogger=ssFile, tcpdump_filter="host 128.111.68.220")
     myObj.parse_wifi_energy()
     myObj.read_cpu_log(
