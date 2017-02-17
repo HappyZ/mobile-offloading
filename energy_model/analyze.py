@@ -66,6 +66,8 @@ class EnergyAnalyzer():
         self.wifi_rssi = []
         # LTE
         self.lte_rsrp = []
+        # GSM
+        self.gsm_rssi = []
 
     def clean_up_wifi_result(self):
         self.wifi_energy = 0
@@ -217,20 +219,24 @@ class EnergyAnalyzer():
             for pattern in myPatterns:
                 myMatch = re.search(pattern, line)
                 if myMatch is not None:
-                    # [timestamp (us), wifi rssi]
+                    # [timestamp (ms), wifi rssi]
                     # or
-                    # [timestamp (us), gsm rssi, lte ss, lte rsrp, lte rsrq]
+                    # [timestamp (ms), gsm rssi, lte ss, lte rsrp, lte rsrq]
                     tmp = myMatch.groups()
                     break
             if tmp is None:
                 self.logger.debug("nothing found in {0}".format(line.rstrip()))
                 continue
             if len(tmp) > 2:
+                # [timestamp (ss), lte rsrp]
                 self.lte_rsrp.append([int(tmp[0]) / 1000.0, int(tmp[3])])
+                # [timestamp (ss), gsm rssi]
+                self.gsm_rssi.append([int(tmp[0]) / 1000.0, int(tmp[1])])
             else:
+                # [timestamp (s), wifi rssi]
                 self.wifi_rssi.append([int(tmp[0]) / 1000.0, int(tmp[1])])
         # self.logger.debug(self.lte_rsrp)
-        # self.logger.debug(self.wifi_rssi)
+        self.logger.debug(self.wifi_rssi)
 
     def read_tcpdump_file(self, fp_tcpdump,
                           isWiFi=False, isLTE=False, is3G=False):
@@ -350,10 +356,26 @@ class EnergyAnalyzer():
             return
         self.logger.debug("parse_wifi_energy started")
         # by default assume the rssi is the max
-        curRSSI = sorted(
+        curRSSI_max = sorted(
             self.myModel.net_wifi['active'].keys(), reverse=True)[0]
+        curRSSI = curRSSI_max
+        curRSSI_idx = None
+        if len(self.wifi_rssi) > 0:
+            curRSSI_idx = 0
+            curRSSI = self.wifi_rssi[0][1]
         # derive energy for wifi network
         for i in xrange(len(self.data_tcpdump) - 1):
+            # find my current rssi (only if sslogger has the data)
+            if curRSSI_idx is not None and \
+                    curRSSI_idx < len(self.wifi_rssi) - 1:
+                while self.wifi_rssi[
+                        curRSSI_idx + 1][0] < self.data_tcpdump[i][0]:
+                    curRSSI_idx += 1
+                    if curRSSI_idx >= len(self.wifi_rssi):
+                        curRSSI_idx -= 1
+                        break
+                curRSSI = self.wifi_rssi[curRSSI_idx][1]
+            # self.logger.debug("myRSSI: {0}dB".format(curRSSI))
             diffT = self.data_tcpdump[i + 1][0] - self.data_tcpdump[i][0]
             # self.logger.debug("diffT: {0:.8f}".format(diffT))
             # self.logger.debug("{0}".format(self.data_tcpdump[i]))
