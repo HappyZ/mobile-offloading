@@ -491,6 +491,9 @@ class EnergyAnalyzer():
 
         if f is not None:
             f.write('\n')
+            self.logger.info(
+                "Wrote to file {0}/result_overview.csv".format(
+                    self.output_path))
             f.close()
 
         # now generate instant cpu
@@ -499,7 +502,7 @@ class EnergyAnalyzer():
                 self.output_path), 'wb')
             # description
             num_of_cores = len(self.instant_freqs[0])
-            f.write('#' +
+            f.write('#time(s),time_delta(s),' +
                     ','.join(['freq_cpu{0}'.format(x)
                               for x in xrange(num_of_cores)]) +
                     ',' +
@@ -508,11 +511,17 @@ class EnergyAnalyzer():
                     ',util_cpu,' +
                     'power\n')
             for i in xrange(len(self.instant_freqs)):
+                f.write('{0:.2f},'.format(self.data_cpu[i+1][0]))
+                f.write('{0:.2f},'.format(
+                    self.data_cpu[i+1][0] - self.data_cpu[0][0]))
                 for freq in self.instant_freqs[i]:
                     f.write('{0:d},'.format(freq))
                 for util in self.instant_utils[i]:
                     f.write('{0:.2f},'.format(util * 100))
                 f.write('{0:.8f}\n'.format(self.instant_power[i]))
+            self.logger.info(
+                "Wrote to file {0}/result_cpu_instant.csv".format(
+                    self.output_path))
             f.close()
 
 if __name__ == "__main__":
