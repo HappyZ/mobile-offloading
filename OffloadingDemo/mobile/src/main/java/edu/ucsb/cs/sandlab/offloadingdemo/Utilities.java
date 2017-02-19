@@ -22,6 +22,8 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.Enumeration;
 import java.util.Locale;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Created by yanzi on 10/1/15.
@@ -551,5 +553,47 @@ class Utilities {
                 MainActivity.txt_results.append("Estimated ending @ " + estimatedTime + "\n");
             }
         });
+    }
+
+    /**
+     * check if is a valid IP (pingable)
+     * @param ip: ip address as string
+     * @return boolean
+     */
+    static boolean validIP(String ip) {
+        // only check the ip ad ipv4
+        if ( ip == null || ip.isEmpty() ) return false;
+        int i;
+        String[] parts;
+        try {
+            parts = ip.split( "\\." );
+        } catch (Exception ignored) {
+            return false;
+        }
+        if ( parts.length != 4 ) return false;
+        for ( String s : parts ) {
+            i = Integer.parseInt(s);
+            if ((i < 0) || (i > 255)) return false;
+        }
+        if (ip.endsWith(".")) return false;
+        // ping the ip and see if it is reachable
+        try {
+            return InetAddress.getByName(ip).isReachable(5);
+        } catch (IOException ignored) {
+            return false;
+        }
+    }
+
+    /**
+     * check if is a valid MAC
+     * @param mac: mac address as string
+     * @return boolean
+     */
+    static boolean validMAC(String mac) {
+        // use regular expression to validate a mac address
+        // the only valid format is xx:xx:xx:xx:xx:xx
+        Pattern p = Pattern.compile("^([a-fA-F0-9][:]){5}[a-fA-F0-9][:]$");
+        Matcher m = p.matcher(mac);
+        return m.find();
     }
 }

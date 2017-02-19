@@ -14,6 +14,7 @@ import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -196,10 +197,34 @@ class MainActivity extends Activity {
      * @param myflag:
      */
     protected void startRecording(boolean myflag) {
+        AlertDialog.Builder adb;
         final boolean flagRecv = myflag;
         final ArrayList<Integer> selectedItems = new ArrayList<>();
 
-        AlertDialog.Builder adb = new AlertDialog.Builder(MainActivity.this);
+        // first initialize the target ip and mac
+        EditText edit_remote_ip = (EditText) findViewById(R.id.remote_ip);
+        EditText edit_remote_mac = (EditText) findViewById(R.id.remote_mac);
+        String string_remote_ip = edit_remote_ip.getText().toString();
+        String string_remote_mac = edit_remote_mac.getText().toString();
+        // check if ip is in valid format and reachable
+        if (Utilities.validIP(string_remote_ip)) {
+            remoteIP = string_remote_ip;
+        } else {
+            Toast.makeText(this, "Entered IP is not right, will use " + remoteIP + "instead",
+                    Toast.LENGTH_SHORT);
+        }
+        // check if mac is in valid format
+        if (Utilities.validMAC(string_remote_mac)) {
+            remoteMAC = string_remote_mac;
+        } else {
+            Toast.makeText(this, "Entered MAC is not right, will use " + remoteMAC + "instead",
+                    Toast.LENGTH_SHORT);
+        }
+        Log.d(TAG, "remote IP is set to " + remoteIP);
+        Log.d(TAG, "remote MAC is set to " + remoteMAC);
+
+        // then create a dialog for options
+        adb = new AlertDialog.Builder(MainActivity.this);
         adb.setMultiChoiceItems(Utilities.existedItems, null,
                 new DialogInterface.OnMultiChoiceClickListener() {
             @Override
@@ -895,8 +920,8 @@ class MainActivity extends Activity {
                                             "time_wait_for is set to " + time_wait_for + "ms\n");
                                 }
                             });
-                            Log.d(TAG, "time_wait_for is set to " + time_wait_for + "ms");
                         }
+                        Log.d(TAG, "time_wait_for is set to " + time_wait_for + "ms");
                     }
                 });
                 mDialog.create().show();
