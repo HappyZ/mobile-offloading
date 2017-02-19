@@ -10,6 +10,12 @@ def getVoltage(productname):
     return 1
 
 
+def getCoreNum(productname):
+    if productname == "shamu":
+        return 4
+    return 2
+
+
 class Model():
     '''
     The energy model module

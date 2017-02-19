@@ -3,7 +3,7 @@ import os
 import re
 import subprocess
 
-sys.path.append("modules")
+# sys.path.append("modules")
 try:
     from model import *
 except:
@@ -18,6 +18,7 @@ class EnergyAnalyzer():
                  isDebugging=False, unit="mW", output_path=None):
         self.myModel = Model(isDebugging=isDebugging, unit=unit)
         self.myModel.load(productname)
+        self.num_of_cores = getCoreNum(productname)
         # first time initialization
         self.clean_up_cpu()
         self.clean_up_net()
@@ -44,8 +45,8 @@ class EnergyAnalyzer():
         self.instant_freqs = []  # freq of each core at time unit
         self.instant_utils = []  # util perc of each core at time unit
         self.instant_power = []  # power spent at time unit
-        self.total_idle = []  # [cpu0, cpu1, ..., cpuN, cpuOverall]
-        self.total_used = []  # [cpu0, cpu1, ..., cpuN, cpuOverall]
+        self.cpu_idle = []  # [cpu0, cpu1, ..., cpuN, cpuOverall]
+        self.cpu_used = []  # [cpu0, cpu1, ..., cpuN, cpuOverall]
         self.cpu_energy_total = 0  # unit as defined in unit
         self.cpu_power_avg = 0  # average power across time
         self.cpu_utils_avg = []  # [cpu0, cpu1, ..., cpuN, cpuOverall]
@@ -60,9 +61,10 @@ class EnergyAnalyzer():
         self.data_tcpdump = []
         # [[time, net_state, data_len], ...]
         # net_state: 'i': 'idle', 'a': 'active', 't': 'tail'
-        self.net_start_time = -1
-        self.net_end_time = -1
+        self.net_start_time = float('-inf')
+        self.net_end_time = float('inf')
         self.data_size = 0
+        self.wifi_avg_thrpt = 0
         # WiFi
         self.wifi_rssi = []
         # LTE
@@ -71,6 +73,7 @@ class EnergyAnalyzer():
         self.gsm_rssi = []
 
     def clean_up_wifi_result(self):
+        self.wifi_instant_thrpt = []
         self.wifi_energy = 0
         self.wifi_time = 0
         self.wifi_power = 0
@@ -85,15 +88,52 @@ class EnergyAnalyzer():
     '''
     CPU
     '''
+    def parse_cpu_raw(self, filepath):
+        def parseUsedCPU(tmp, offset):
+            return int(tmp[1 + offset]) + int(tmp[2 + offset]) +\
+                int(tmp[3 + offset]) + int(tmp[5 + offset]) +\
+                int(tmp[6 + offset]) + int(tmp[7 + offset])
+        if not os.path.isfile(filepath):
+            self.logger.error(
+                "cpu raw log file {0} does not exist".format(filepath))
+            sys.exit(-1)
+        self.logger.debug("parse_cpu_raw started")
+        with open(filepath, 'rU') as f:
+            contents = f.readlines()
+        f = open(filepath[:-3], 'wb')
+        for line in contents:
+            tmp = line.split()
+            f.write("{0} {1} {2}".format(
+                tmp[0], tmp[5], parseUsedCPU(tmp, 1)))
+            for i in xrange(self.num_of_cores):
+                offset = (i + 1) * 12
+                f.write(" {0} {1} {2}".format(
+                    tmp[4 + offset],
+                    parseUsedCPU(tmp, offset),
+                    tmp[11 + offset]))
+            f.write('\n')
+        f.close()
+        self.logger.debug("parse_cpu_raw ended")
+
     def read_cpu_log(self, filepath,
                      startT=float('-inf'), endT=float('inf')):
+        if '.cpuRaw' in filepath or not os.path.isfile(filepath):
+            if '.cpuRaw' in filepath:
+                self.parse_cpu_raw(filepath)
+                filepath = filepath[:-3]
+            else:
+                self.parse_cpu_raw(filepath + 'Raw')
+        if not os.path.isfile(filepath):
+            self.logger.error(
+                "cpu log file {0} does not exist".format(filepath))
+            sys.exit(-1)
         self.logger.debug("clean up cpu data")
         self.clean_up_cpu_data()
         self.logger.debug("read_cpu_log started")
         contents = []
         skipFirstTime = True
         timeGap_sum_buff = 0
-        timeGap = 0.1 * 1.1
+        timeGap = 0.1 * 2
         with open(filepath, 'rU') as f:
             contents = f.readlines()
         for line in contents:
@@ -109,15 +149,15 @@ class EnergyAnalyzer():
                 continue
             timeGap_sum_buff += timeGap
             # self.logger.debug("passed")
-            cpu_total_idle = int(tmp[1])
-            cpu_total_used = int(tmp[2])
+            cpu_cpu_idle = int(tmp[1])
+            cpu_cpu_used = int(tmp[2])
             cpu_per_core = []
             if not skipFirstTime:
                 delta_t = timestamp - self.data_cpu[-1][0]
-                timeGap = delta_t * 1.1
+                timeGap = delta_t * 2
                 # self.logger.debug(timeGap)
-                delta_total_idle = cpu_total_idle - self.data_cpu[-1][1]
-                delta_total_used = cpu_total_used - self.data_cpu[-1][2]
+                delta_cpu_idle = cpu_cpu_idle - self.data_cpu[-1][1]
+                delta_cpu_used = cpu_cpu_used - self.data_cpu[-1][2]
                 delta_per_core = []
             for i in xrange(3, len(tmp), 3):
                 cpu_i_idle = int(tmp[i])
@@ -131,13 +171,17 @@ class EnergyAnalyzer():
                          cpu_i_freq])  # self.data_cpu[-1][3][i / 3 - 1][2])
             if not skipFirstTime:
                 self.data_cpu_d.append(
-                    [delta_t, delta_total_idle,
-                     delta_total_used, delta_per_core])
+                    [delta_t, delta_cpu_idle,
+                     delta_cpu_used, delta_per_core])
             self.data_cpu.append(
-                [timestamp, cpu_total_idle, cpu_total_used, cpu_per_core])
+                [timestamp, cpu_cpu_idle, cpu_cpu_used, cpu_per_core])
             skipFirstTime = False
+        if len(self.data_cpu_d) < 1:
+            self.logger.error("parse_cpu_energy finds delta empty")
+            self.logger.error(self.data_cpu)
+            self.logger.error("check the file and see why")
         # calculate the logging frequency
-        self.avg_log_freq = timeGap_sum_buff / 1.1 / len(self.data_cpu_d)
+        self.avg_log_freq = timeGap_sum_buff / 2 / len(self.data_cpu_d)
         self.logger.debug("read_cpu_log ended")
 
     def parse_cpu_energy(self,
@@ -152,8 +196,8 @@ class EnergyAnalyzer():
         self.logger.debug("parse_cpu_energy started")
         num_of_cores = len(self.data_cpu_d[0][3])
         # allocate memory
-        self.total_idle = [0 for i in xrange(num_of_cores + 1)]
-        self.total_used = [0 for i in xrange(num_of_cores + 1)]
+        self.cpu_idle = [0 for i in xrange(num_of_cores + 1)]
+        self.cpu_used = [0 for i in xrange(num_of_cores + 1)]
         self.cpu_utils_avg = [0 for i in xrange(num_of_cores + 1)]
         for result in self.data_cpu_d:
             # allocate memory
@@ -163,16 +207,16 @@ class EnergyAnalyzer():
                 if result[3][i][0] + result[3][i][1] > 0:
                     utils[i] = 1.0 * \
                         result[3][i][1] / (result[3][i][0] + result[3][i][1])
-                    self.total_idle[i] += result[3][i][0]
-                    self.total_used[i] += result[3][i][1]
+                    self.cpu_idle[i] += result[3][i][0]
+                    self.cpu_used[i] += result[3][i][1]
                 else:
                     utils[i] = 0
                 freqs[i] = result[3][i][-1]
             # calculate total
             if result[1] + result[2] > 0:
                 utils[-1] = 1.0 * result[2] / (result[1] + result[2])
-                self.total_idle[-1] += result[1]
-                self.total_used[-1] += result[2]
+                self.cpu_idle[-1] += result[1]
+                self.cpu_used[-1] += result[2]
             else:
                 utils[-1] = 0
             # store the results
@@ -197,7 +241,7 @@ class EnergyAnalyzer():
         self.cpu_power_avg = self.cpu_energy_total / self.cpu_time_total
         for i in xrange(num_of_cores + 1):
             self.cpu_utils_avg[i] = 1.0 * \
-                self.total_used[i] / (self.total_used[i] + self.total_idle[i])
+                self.cpu_used[i] / (self.cpu_used[i] + self.cpu_idle[i])
         # self.logger.debug(self.instant_power)
         self.logger.debug("parse_cpu_energy ended")
 
@@ -284,7 +328,7 @@ class EnergyAnalyzer():
             if len(tmp) > 5:
                 data_len = int(tmp[5]) - int(tmp[4])
                 total_bytes += data_len
-                self.logger.debug("{0}".format(total_bytes))
+                # self.logger.debug("{0}".format(total_bytes))
                 if size_limit is not None and total_bytes > size_limit:
                     break
             if firstLine:
@@ -319,6 +363,8 @@ class EnergyAnalyzer():
         self.net_start_time = self.data_tcpdump[0][0]
         self.net_end_time = self.data_tcpdump[-2][0]  # true net end time
         self.data_size = total_bytes
+        self.wifi_avg_thrpt = \
+            total_bytes / (self.net_end_time - self.net_start_time)
 
     def read_wifi_log(self, fp_tcpdump, tcpdump_filter="",
                       size_limit=None,
@@ -376,6 +422,10 @@ class EnergyAnalyzer():
         if len(self.wifi_rssi) > 0:
             curRSSI_idx = 0
             curRSSI = self.wifi_rssi[0][1]
+        # for convenience the first throughput point is initially set to 0
+        self.wifi_instant_thrpt.append(
+            [self.data_tcpdump[0][0], 0])
+        tmp_data_size = 0
         # derive energy for wifi network
         for i in xrange(len(self.data_tcpdump) - 1):
             # find my current rssi (only if sslogger has the data)
@@ -405,6 +455,7 @@ class EnergyAnalyzer():
                     energy = curPower
                 self.wifi_active_energy += energy
                 self.wifi_active_time += diffT
+                tmp_data_size += self.data_tcpdump[i][2]
             elif self.data_tcpdump[i][1] == 't':
                 curPower = self.myModel.get_wifi_tail_energy(diffT)
                 # check if returned is power (watt) or energy (joule)
@@ -422,6 +473,25 @@ class EnergyAnalyzer():
                 self.logger.error(
                     "net_state is not recognized: {0}".format(
                         self.data_tcpdump[i][1]))
+            # only calculate throughput if time difference is large enough
+            diffT = self.data_tcpdump[i][0] - self.wifi_instant_thrpt[-1][0]
+            if diffT > 0.1:
+                thrpt = 1.0 * tmp_data_size / diffT
+                # reset the previous thrpt
+                self.wifi_instant_thrpt[-1][1] = thrpt
+                # add a new one
+                self.wifi_instant_thrpt.append(
+                    [self.data_tcpdump[i][0], 0])
+                tmp_data_size = 0
+        # the last thrpt
+        if diffT > 0:
+            self.wifi_instant_thrpt[-1][1] = 1.0 * tmp_data_size / diffT
+            self.wifi_instant_thrpt.append(
+                [self.data_tcpdump[-2][0], 0])
+            self.wifi_instant_thrpt.append(
+                [self.data_tcpdump[-1][0], 0])
+        # self.logger.debug(self.wifi_instant_thrpt)
+        # energy
         self.wifi_energy = self.wifi_active_energy + self.wifi_tail_energy
         self.wifi_time = self.wifi_active_time + self.wifi_tail_time
         try:
@@ -430,7 +500,7 @@ class EnergyAnalyzer():
             self.wifi_power = -1
         self.logger.debug("parse_wifi_energy ended")
 
-    def generate_result_summary(self, cpu=True, wifi=True):
+    def generate_result_summary(self, cpu=True, wifi=True, f_suffix=""):
         '''
         Generate summary of the results
         '''
@@ -447,13 +517,13 @@ class EnergyAnalyzer():
         # if write to file, first generate overview
         f = None
         if self.output_path is not None:
-            overview_fp = "{0}/result_overview.csv".format(self.output_path)
-            if os.path.isfile(overview_fp):
-                f = open(overview_fp, 'ab')
+            overview_fn = "{0}/result_overview.csv".format(self.output_path)
+            if os.path.isfile(overview_fn):
+                f = open(overview_fn, 'ab')
             else:
-                f = open(overview_fp, 'wb')
+                f = open(overview_fn, 'wb')
                 # first line description
-                f.write('#data_size(MB),' +
+                f.write('#data_size(MB),avg_thrpt(Mbps),' +
                         'total_energy(mJ),total_time(s),avg_total_pwr(mW),' +
                         'avg_logging_freq(s/record)')
                 if cpu:
@@ -466,9 +536,10 @@ class EnergyAnalyzer():
                             ',avg_cpu_util(%)')
                 if wifi:
                     f.write(',wifi_energy(mJ),wifi_time(s),avg_wifi_pwr(mW),' +
-                            'wifi_active_energy(mJ),wifi_idel_energy(mJ)')
+                            'wifi_active_energy(mJ),wifi_idle_energy(mJ)')
                 f.write('\n')
             f.write('{0:.2f},'.format(self.data_size / 1048576.0))
+            f.write('{0:.2f},'.format(self.wifi_avg_thrpt / 1048576.0 * 8))
             f.write('{0:.8f},{1:.8f},{2:.8f},'.format(
                 total_energy, total_time, avg_power))
             f.write('{0:.8f}'.format(self.avg_log_freq))
@@ -511,14 +582,35 @@ class EnergyAnalyzer():
         if f is not None:
             f.write('\n')
             self.logger.info(
-                "Wrote to file {0}/result_overview.csv".format(
-                    self.output_path))
+                "Wrote to file {0}".format(overview_fn))
             f.close()
+
+        # now generate instant wifi thrpt
+        if wifi and self.output_path is not None:
+            fn = "{0}/result_wifi_instant_{1:.2f}MB{2}.csv".format(
+                self.output_path, self.data_size / 1048576.0, f_suffix)
+            f = open(fn, 'wb')
+            # description
+            f.write('#time(s),time_delta(s),throughput(Mbps)\n')
+            for i in xrange(len(self.wifi_instant_thrpt) - 1):
+                f.write('{0:.2f},{1:.2f},{2:.2f}\n'.format(
+                    self.wifi_instant_thrpt[i][0],
+                    self.wifi_instant_thrpt[i][0] -
+                    self.wifi_instant_thrpt[0][0],
+                    self.wifi_instant_thrpt[i][1] / 1048576.0 * 8))
+            # f.write('{0:.2f},{1:.2f},{2:.2f}\n'.format(
+            #     self.wifi_instant_thrpt[-1][0],
+            #     self.wifi_instant_thrpt[-1][0] -
+            #     self.wifi_instant_thrpt[0][0],
+            #     0))
+            f.close()
+            self.logger.info("Wrote to file {0}".format(fn))
 
         # now generate instant cpu
         if cpu and self.output_path is not None:
-            f = open("{0}/result_cpu_instant_{1:.2f}MB.csv".format(
-                self.output_path, self.data_size / 1048576.0), 'wb')
+            fn = "{0}/result_cpu_instant_{1:.2f}MB{2}.csv".format(
+                self.output_path, self.data_size / 1048576.0, f_suffix)
+            f = open(fn, 'wb')
             # description
             num_of_cores = len(self.instant_freqs[0])
             f.write('#time(s),time_delta(s),' +
@@ -532,35 +624,33 @@ class EnergyAnalyzer():
             for i in xrange(len(self.instant_freqs)):
                 f.write('{0:.2f},'.format(self.data_cpu[i+1][0]))
                 f.write('{0:.2f},'.format(
-                    self.data_cpu[i+1][0] - self.data_cpu[0][0]))
+                    self.data_cpu[i][0] - self.data_cpu[0][0]))
                 for freq in self.instant_freqs[i]:
                     f.write('{0:d},'.format(freq))
                 for util in self.instant_utils[i]:
                     f.write('{0:.2f},'.format(util * 100))
                 f.write('{0:.8f}\n'.format(self.instant_power[i]))
-            self.logger.info(
-                "Wrote to file {0}/result_cpu_instant.csv".format(
-                    self.output_path))
             f.close()
+            self.logger.info("Wrote to file {0}".format(fn))
 
 if __name__ == "__main__":
     # cpuFile = sys.argv[1]
-    cpuFile = "./models/test/1485560673559.cpu"
-    tcpdumpFile = "./models/test/tcpdump_wifionly_1485560673559"
-    ssFile = "./models/test/1485560673559.ss"
-    if not os.path.isfile(cpuFile):
-        print ".....!"
-        sys.exit(-1)
+    # cpuFile = "./models/test/1485560673559.cpu"
+    # tcpdumpFile = "./models/test/tcpdump_wifionly_1485560673559"
+    # ssFile = "./models/test/1485560673559.ss"
+    cpuFile = "./models/test2/1487031992798.cpu"
+    tcpdumpFile = "./models/test2/tcpdump_wifionly_1487031992798"
+    ssFile = "./models/test2/1487031992798.ss"
     myObj = EnergyAnalyzer(
-        "shamu", isDebugging=True, unit="mW",
-        output_path="./models/test/")
+        "shamu", isDebugging=False, unit="mW",
+        output_path="./models/test2/")
     myObj.read_wifi_log(
         tcpdumpFile,
-        size_limit=1024*1024*20,
-        fp_sslogger=ssFile, tcpdump_filter="host 128.111.68.220")
+        size_limit=None,  # 1024*1024*90,
+        fp_sslogger=ssFile, tcpdump_filter="host 192.168.10.1")
     myObj.parse_wifi_energy()
     myObj.read_cpu_log(
         cpuFile,
         startT=myObj.net_start_time, endT=myObj.net_end_time)
     myObj.parse_cpu_energy()
-    myObj.generate_result_summary()
+    myObj.generate_result_summary(f_suffix="_test")
