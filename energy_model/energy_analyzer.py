@@ -37,11 +37,14 @@ def checkFiles(folderpath, timestamp):
 if __name__ == "__main__":
     DEBUG = True
     logger = EmptyLogger("App", isDebugging=DEBUG, printout=True)
-    remoteIP = '192.168.10.1'
+    # remoteIP = '128.111.68.220'
+    remoteIP = '192.168.2.1'
     # sizeOptions = [1, 5, 10, 20, 50, 100]  # MB
-    sizeOptions = [None]  #MB
+    sizeOptions = [None]  # MB
     # folder = sys.argv[1]
-    folder = './models/test2/'
+    # folder = './models/bypass/120MBps/'
+    folder = '/Users/yanzi/GDrive/UCSB/Projects/Offloading_2017/Data/' +\
+        'initial_comparison/udp_mtu20k/160Mbps'
     # check if is folder
     if os.path.isdir(folder):
         files = [x for x in os.listdir(folder) if '.cpuRaw' in x]
@@ -63,17 +66,21 @@ if __name__ == "__main__":
         logger.debug(status)
         for size_limit in sizeOptions:
             if size_limit is not None:
-                size_limit = size_limit * 1024 * 1024
+                size_limit = size_limit * 1000 * 1000
             # myAnalyzer.clean_up_cpu()
             # myAnalyzer.clean_up_net()
             # parse wifi
             if 'tcpdump' in status:
                 logger.debug('reading tcpdump...')
+                if 'bypass' in folder:
+                    myfilter = ""
+                else:
+                    myfilter = "host {0}".format(remoteIP)
                 myAnalyzer.read_wifi_log(
                     status['tcpdump'],
                     size_limit=size_limit,
                     fp_sslogger=status['ss'],
-                    tcpdump_filter="host {0}".format(remoteIP))
+                    tcpdump_filter=myfilter)
                 logger.debug('analyzing tcpdump...')
                 myAnalyzer.parse_wifi_energy()
             # parse cpu

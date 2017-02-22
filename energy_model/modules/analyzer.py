@@ -299,7 +299,12 @@ class EnergyAnalyzer():
                       'Flags \[([\w\.]+)\], ack (\d+),',
                         # SYN/SYNACK or FIN/FINACK packet, with one seq
                       '([\d\.]+) IP ([\d\.]+) \> ([\d\.]+): ' +
-                      'Flags \[([\w\.]+)\], seq (\d+),']
+                      'Flags \[([\w\.]+)\], seq (\d+),',
+                        # UDP
+                      '([\d\.]+) IP ([\d\.]+) \> ([\d\.]+): ' +
+                      'UDP, length (\d+)',
+                        # offloading
+                      '([\d\.]+) IP0 bad-hlen 0']
         with open(fp_tcpdump, 'rU') as f:
             content = f.readlines()
         firstLine = True
@@ -325,8 +330,13 @@ class EnergyAnalyzer():
             # else:
             #     data_type = 'seq'
             data_len = 0
-            if len(tmp) > 5:
-                data_len = int(tmp[5]) - int(tmp[4])
+            if len(tmp) > 5 or pattern_i > 2:
+                if pattern_i == 3:  # UDP
+                    data_len = int(tmp[3])
+                elif pattern_i == 4:  # offloading
+                    data_len = 1488
+                else:
+                    data_len = int(tmp[5]) - int(tmp[4])
                 total_bytes += data_len
                 # self.logger.debug("{0}".format(total_bytes))
                 if size_limit is not None and total_bytes > size_limit:
@@ -538,8 +548,8 @@ class EnergyAnalyzer():
                     f.write(',wifi_energy(mJ),wifi_time(s),avg_wifi_pwr(mW),' +
                             'wifi_active_energy(mJ),wifi_idle_energy(mJ)')
                 f.write('\n')
-            f.write('{0:.2f},'.format(self.data_size / 1048576.0))
-            f.write('{0:.2f},'.format(self.wifi_avg_thrpt / 1048576.0 * 8))
+            f.write('{0:.2f},'.format(self.data_size / 1000000.0))
+            f.write('{0:.2f},'.format(self.wifi_avg_thrpt / 1000000.0 * 8))
             f.write('{0:.8f},{1:.8f},{2:.8f},'.format(
                 total_energy, total_time, avg_power))
             f.write('{0:.8f}'.format(self.avg_log_freq))
@@ -588,7 +598,7 @@ class EnergyAnalyzer():
         # now generate instant wifi thrpt
         if wifi and self.output_path is not None:
             fn = "{0}/result_wifi_instant_{1:.2f}MB{2}.csv".format(
-                self.output_path, self.data_size / 1048576.0, f_suffix)
+                self.output_path, self.data_size / 1000000.0, f_suffix)
             f = open(fn, 'wb')
             # description
             f.write('#time(s),time_delta(s),throughput(Mbps)\n')
@@ -597,7 +607,7 @@ class EnergyAnalyzer():
                     self.wifi_instant_thrpt[i][0],
                     self.wifi_instant_thrpt[i][0] -
                     self.wifi_instant_thrpt[0][0],
-                    self.wifi_instant_thrpt[i][1] / 1048576.0 * 8))
+                    self.wifi_instant_thrpt[i][1] / 1000000.0 * 8))
             # f.write('{0:.2f},{1:.2f},{2:.2f}\n'.format(
             #     self.wifi_instant_thrpt[-1][0],
             #     self.wifi_instant_thrpt[-1][0] -
@@ -609,7 +619,7 @@ class EnergyAnalyzer():
         # now generate instant cpu
         if cpu and self.output_path is not None:
             fn = "{0}/result_cpu_instant_{1:.2f}MB{2}.csv".format(
-                self.output_path, self.data_size / 1048576.0, f_suffix)
+                self.output_path, self.data_size / 1000000.0, f_suffix)
             f = open(fn, 'wb')
             # description
             num_of_cores = len(self.instant_freqs[0])
@@ -646,7 +656,7 @@ if __name__ == "__main__":
         output_path="./models/test2/")
     myObj.read_wifi_log(
         tcpdumpFile,
-        size_limit=None,  # 1024*1024*90,
+        size_limit=None,  # 1000*1000*90,
         fp_sslogger=ssFile, tcpdump_filter="host 192.168.10.1")
     myObj.parse_wifi_energy()
     myObj.read_cpu_log(
