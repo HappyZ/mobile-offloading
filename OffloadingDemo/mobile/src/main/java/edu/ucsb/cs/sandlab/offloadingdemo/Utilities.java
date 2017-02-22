@@ -575,13 +575,7 @@ class Utilities {
             i = Integer.parseInt(s);
             if ((i < 0) || (i > 255)) return false;
         }
-        if (ip.endsWith(".")) return false;
-        // ping the ip and see if it is reachable
-        try {
-            return InetAddress.getByName(ip).isReachable(5);
-        } catch (IOException ignored) {
-            return false;
-        }
+        return !ip.endsWith(".");
     }
 
     /**
@@ -592,7 +586,7 @@ class Utilities {
     static boolean validMAC(String mac) {
         // use regular expression to validate a mac address
         // the only valid format is xx:xx:xx:xx:xx:xx
-        Pattern p = Pattern.compile("^([a-fA-F0-9][:]){5}[a-fA-F0-9][:]$");
+        Pattern p = Pattern.compile("/^([a-fA-F0-9]{2}:){5}[a-fA-F0-9]{2}$/");
         Matcher m = p.matcher(mac);
         return m.find();
     }

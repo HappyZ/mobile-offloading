@@ -206,7 +206,7 @@ class MainActivity extends Activity {
         EditText edit_remote_mac = (EditText) findViewById(R.id.remote_mac);
         String string_remote_ip = edit_remote_ip.getText().toString();
         String string_remote_mac = edit_remote_mac.getText().toString();
-        // check if ip is in valid format and reachable
+        // check if ip is in valid format
         if (Utilities.validIP(string_remote_ip)) {
             remoteIP = string_remote_ip;
         } else {
