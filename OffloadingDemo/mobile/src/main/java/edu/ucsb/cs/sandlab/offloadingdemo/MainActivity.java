@@ -518,7 +518,7 @@ class MainActivity extends Activity {
                                                         + (bytes2send / 1024) + "KB_"
                                                         + repeatCounts + "repeats_thrpt_"
                                                         + (currentBandwidth == -1 ? "Unlimited" :
-                                                          (currentBandwidth / 1000000.0) + "MBps_")
+                                                          (currentBandwidth / 1000000.0) + "Mbps_")
                                                         + (new SimpleDateFormat(
                                                                 "yyyyMMdd_HHmmss", Locale.US)
                                                             .format(new Date()))
@@ -793,10 +793,11 @@ class MainActivity extends Activity {
                 CharSequence[] items = {
                         "Verbose Mode", "Only Run Locally", "CPULog (Per Proc)",
                         "CPULog (WiFi Driver)", "CPULog (This App)", "CPULog (TCPDump)",
-                        "Force on CPU0"};
+                        "Force on CPU0", "20kMTU for UDP"};
                 boolean[] checkedItems = {
-                        isVerbose, isLocal, isLoggingPerProcPID, (wifiDriverPID!=-1),
-                        isLoggingAppSelf, isLoggingTCPDump, isForcingCPU0};
+                        isVerbose, isLocal, isLoggingPerProcPID, (wifiDriverPID != -1),
+                        isLoggingAppSelf, isLoggingTCPDump, isForcingCPU0,
+                        (Utilities.udpsendsize != -1)};
                 AlertDialog.Builder adb = new AlertDialog.Builder(MainActivity.this);
                 adb.setMultiChoiceItems(items, checkedItems, new DialogInterface.OnMultiChoiceClickListener() {
                     @Override
@@ -858,6 +859,13 @@ class MainActivity extends Activity {
                                 isForcingCPU0 = isChecked;
                                 Toast.makeText(MainActivity.this,
                                         (isForcingCPU0 ? "Force on cpu 0" : "Will run on any cpu"),
+                                        Toast.LENGTH_SHORT).show();
+                                break;
+                            case 7:
+                                Utilities.udpsendsize = isChecked ? 20000: -1;
+                                Toast.makeText(MainActivity.this,
+                                        (Utilities.udpsendsize != -1) ?
+                                                "udp mtu to 20k" : "1.5k mtu for udp",
                                         Toast.LENGTH_SHORT).show();
                                 break;
                         }
