@@ -61,7 +61,7 @@
                 android:layout_height="match_parent"
                 android:layout_weight="3"
                 android:hint="Remote IP"
-                android:text="192.168.10.1"
+                android:text="192.168.2.1"
                 android:inputType="text"
                 android:textSize="16dp"/>
 
@@ -79,7 +79,7 @@
                 android:layout_height="match_parent"
                 android:layout_weight="3"
                 android:hint="Remote MAC"
-                android:text="f0:de:f1:0b:45:4a"
+                android:text="4e:32:75:f8:7e:64"
                 android:inputType="text"
                 android:textSize="16dp"/>
 
