@@ -670,9 +670,14 @@ class MainActivity extends Activity {
                                 txt_results.append("Starting.. will come back after 1min\n");
                             }
                         });
-                        // disable tcpdump
-                        boolean isUsingTCPDump_backup = isUsingTCPDump;
-                        isUsingTCPDump = false;
+//                        // disable tcpdump
+//                        boolean isUsingTCPDump_backup = isUsingTCPDump;
+//                        isUsingTCPDump = false;
+                        String[] commd = new String[3];
+                        commd[0] = "su";
+                        commd[1] = "&&";
+                        commd[2] = "cd " + outFolderPath
+                                + " && rm *.cpu *.cpuRaw *.ss tcpdump*";
                         // change screen brightness to 0
                         Utilities.switchScreenStatus();
 
@@ -700,18 +705,22 @@ class MainActivity extends Activity {
                                 "yyyyMMdd_HHmmss", Locale.US)
                                 .format(new Date()))
                                 + ".tar.gz";
-                        String[] commd = new String[3];
-                        commd[0] = "su";
-                        commd[1] = "&&";
                         commd[2] = "cd " + outFolderPath
                                 + " && busybox tar -czf "
-                                + tarName + " *.cpu *.cpuRaw *.ss";
+                                + tarName + " *.cpu *.cpuRaw *.ss tcpdump*";
                         try {
                             Runtime.getRuntime().exec(commd).waitFor();
                         } catch (InterruptedException | IOException e) {
                             e.printStackTrace();
                         }
-                        isUsingTCPDump = isUsingTCPDump_backup;
+                        commd[2] = "cd " + outFolderPath
+                                + " && rm *.cpu *.cpuRaw *.ss tcpdump*";
+                        try {
+                            Runtime.getRuntime().exec(commd).waitFor();
+                        } catch (InterruptedException | IOException e) {
+                            e.printStackTrace();
+                        }
+//                        isUsingTCPDump = isUsingTCPDump_backup;
                         // msg indicating all done
                         myHandler.post(new Runnable() {
                             @Override
