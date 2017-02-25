@@ -55,7 +55,7 @@ class MainActivity extends Activity {
     protected static int time_wait_for = 100; // ms
     protected static int wifiDriverPID = -1;
     // maintained variables
-    private Button btn_startTransmit, btn_startReceive;
+    private Button btn_startTransmit, btn_startReceive, btn_measureBg;
     private Button btn_setByte2send, btn_setRepeatTimes, btn_setTCPDumpInterface,
             btn_clearStatus, btn_setLogFreq, btn_setOthers;
     private WifiManager wm;
@@ -630,6 +630,7 @@ class MainActivity extends Activity {
         txt_results = (TextView) findViewById(R.id.txt_results);
         btn_startTransmit = (Button) findViewById(R.id.btn_startTransmit);
         btn_startReceive = (Button) findViewById(R.id.btn_startReceive);
+        btn_measureBg = (Button) findViewById(R.id.btn_measureBg);
         btn_setByte2send = (Button) findViewById(R.id.btn_setByte2send);
         btn_setRepeatTimes = (Button) findViewById(R.id.btn_setRepeatTimes);
         btn_setTCPDumpInterface = (Button) findViewById(R.id.btn_setTCPDumpInterface);
@@ -654,6 +655,73 @@ class MainActivity extends Activity {
             @Override
             public void onClick(View v) {
                 startRecording(true);
+            }
+        });
+        btn_measureBg.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        // msg indicating starting
+                        myHandler.post(new Runnable() {
+                            @Override
+                            public void run() {
+                                txt_results.append("Starting.. will come back after 1min\n");
+                            }
+                        });
+                        // disable tcpdump
+                        boolean isUsingTCPDump_backup = isUsingTCPDump;
+                        isUsingTCPDump = false;
+                        // change screen brightness to 0
+                        Utilities.switchScreenStatus();
+
+                        btn_click_time = Long.toString(
+                                System.currentTimeMillis());
+                        startService(intentSSLogger);
+                        try {
+                            Thread.sleep(60000);  // sleep for 60s
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                        stopService(intentSSLogger);
+                        myServiceCheck();
+                        try {
+                            Thread.sleep(1000);
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                        // change screen back on
+                        Utilities.switchScreenStatus();
+                        Runtime.getRuntime().gc();
+                        System.gc();
+                        String tarName = "bg_measure_"
+                                + (new SimpleDateFormat(
+                                "yyyyMMdd_HHmmss", Locale.US)
+                                .format(new Date()))
+                                + ".tar.gz";
+                        String[] commd = new String[3];
+                        commd[0] = "su";
+                        commd[1] = "&&";
+                        commd[2] = "cd " + outFolderPath
+                                + " && busybox tar -czf "
+                                + tarName + " *.cpu *.cpuRaw *.ss";
+                        try {
+                            Runtime.getRuntime().exec(commd).waitFor();
+                        } catch (InterruptedException | IOException e) {
+                            e.printStackTrace();
+                        }
+                        isUsingTCPDump = isUsingTCPDump_backup;
+                        // msg indicating all done
+                        myHandler.post(new Runnable() {
+                            @Override
+                            public void run() {
+                                txt_results.append("Done\n");
+                            }
+                        });
+                    }
+                }).start();
+
             }
         });
         btn_setByte2send.setOnClickListener(new View.OnClickListener() {

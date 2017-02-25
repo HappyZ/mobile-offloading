@@ -21,7 +21,7 @@
                 android:id="@+id/btn_startTransmit"
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
-                android:layout_weight="1"
+                android:layout_weight="2"
                 android:text="@string/btn_begintx"
                 android:textStyle="bold"
                 android:textSize="20dp"
@@ -32,8 +32,19 @@
                 android:id="@+id/btn_startReceive"
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
-                android:layout_weight="1"
+                android:layout_weight="2"
                 android:text="@string/btn_beginrx"
+                android:textStyle="bold"
+                android:textSize="20dp"
+                android:textColor="#FFFFFF"/>
+
+            <Button
+                android:theme="@style/theme_btn_bg"
+                android:id="@+id/btn_measureBg"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:text="Get BG"
                 android:textStyle="bold"
                 android:textSize="20dp"
                 android:textColor="#FFFFFF"/>

@@ -41,7 +41,8 @@ class Thread_TX_CNormalUDP implements Runnable {
                 + (MainActivity.isLocal ? Utilities.myInetIP : MainActivity.remoteIP) + " "
                 + Utilities.UDP_port + " "
                 + ((MainActivity.currentBandwidth < 0) ? "" : String.valueOf(
-                        MainActivity.currentBandwidth));
+                        MainActivity.currentBandwidth))
+                + ((Utilities.udpsendsize == -1) ? "" : String.valueOf(Utilities.udpsendsize));
 
         Log.d("TX_NormalUDP", "Start TX Normal UDP");
 

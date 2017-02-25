@@ -345,7 +345,7 @@ class SSLogger extends Service {
      * @return string that's been parsed
      */
     private static String parseProcPIDStat(String line) {
-        if (line == null) return "-1 -1 -1"; // -1 means it does not exist
+        if (line == null) return "nan nan nan"; // -1 means it does not exist
         String[] toks = line.split("\\s+");
         long idle = Long.parseLong(toks[15]) + Long.parseLong(toks[16]);
         long cpu = Long.parseLong(toks[13]) + Long.parseLong(toks[14]);

@@ -8,4 +8,7 @@
     <style name="theme_btn_rx" parent="android:Theme.Material">
         <item name="android:colorButtonNormal">@color/pink</item>
     </style>
+    <style name="theme_btn_bg" parent="android:Theme.Material">
+        <item name="android:colorButtonNormal">@color/wallet_holo_blue_light</item>
+    </style>
 </resources>

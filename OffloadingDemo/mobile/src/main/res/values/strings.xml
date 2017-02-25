@@ -5,8 +5,8 @@
     <string name="btn_setuptcpdump">Setup\nTCPDump</string>
     <string name="btn_setothers">Misc.</string>
     <string name="btn_clear">Clear</string>
-    <string name="btn_beginrx">Begin RX</string>
-    <string name="btn_begintx">Begin TX</string>
+    <string name="btn_beginrx">Start RX</string>
+    <string name="btn_begintx">Start TX</string>
     <string name="warn_root">Not rooted!! Must be rooted!</string>
     <string name="stat_wifion">WiFi is ON!\n</string>
     <string name="stat_wifioff">WiFi is NOT On!\n</string>
