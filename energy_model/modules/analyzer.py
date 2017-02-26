@@ -281,7 +281,7 @@ class EnergyAnalyzer():
                 # [timestamp (s), wifi rssi]
                 self.wifi_rssi.append([int(tmp[0]) / 1000.0, int(tmp[1])])
         # self.logger.debug(self.lte_rsrp)
-        self.logger.debug(self.wifi_rssi)
+        # self.logger.debug(self.wifi_rssi)
 
     def read_tcpdump_file(self, fp_tcpdump,
                           size_limit=None,
@@ -362,7 +362,7 @@ class EnergyAnalyzer():
         # check result
         if len(self.data_tcpdump) < 2:
             self.logger.error("tcpdump file has weird size...")
-            sys.exit(-1)
+            sys.exit(1)
         # the last one must be tail
         self.data_tcpdump[-1][1] = 't'
         # after self.myModel.wifi_timeout, it will become idle
@@ -515,7 +515,7 @@ class EnergyAnalyzer():
         Generate summary of the results
         '''
         total_energy = self.cpu_energy_total + self.wifi_energy
-        total_time = self.wifi_time
+        total_time = self.wifi_time if wifi else self.cpu_time_total
         avg_power = total_energy / total_time
 
         self.logger.info(
