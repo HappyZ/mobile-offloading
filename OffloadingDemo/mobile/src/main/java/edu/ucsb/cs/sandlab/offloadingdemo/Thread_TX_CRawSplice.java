@@ -77,19 +77,21 @@ class Thread_TX_CRawSplice implements Runnable {
                 stdout = stdout_buf.readLine();
                 duration = Utilities.parseBinOutput(stdout);
                 MainActivity.reportedFinishTime = duration;
-                if (MainActivity.isVerbose) {
-                    MainActivity.myHandler.post(new Runnable() {
-                        @Override
-                        public void run() {
-                            MainActivity.txt_results.append(
-                                    "Sent " + sentBytes + "bytes in " + duration + "s\n");
-                        }
-                    });
-                }
 
                 // throughput
                 stdout = stdout_buf.readLine();
                 throughput = Utilities.parseBinOutput(stdout);
+
+                if (MainActivity.isVerbose) {
+                    MainActivity.myHandler.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            MainActivity.txt_results.append("Sent " + sentBytes +
+                                    "bytes in " + duration +
+                                    "s (" +throughput/Utilities.oneMB +"Mbps)\n");
+                        }
+                    });
+                }
             }
 
         } catch (IOException | InterruptedException e) {
