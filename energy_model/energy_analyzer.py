@@ -34,26 +34,13 @@ def checkFiles(folderpath, timestamp):
     return status
 
 
-if __name__ == "__main__":
-    DEBUG = True
-    logger = EmptyLogger("App", isDebugging=DEBUG, printout=True)
-    # remoteIP = '128.111.68.220'
-    remoteIP = '192.168.2.1'
-    # sizeOptions = [1, 5, 10, 20, 50, 100]  # MB
-    sizeOptions = [None]  # MB
-    # folder = sys.argv[1]
-    # folder = './models/bypass/120MBps/'
-    folder = '/Users/yanzi/GDrive/UCSB/Projects/Offloading_2017/Data/' +\
-        'initial_comparison/udp_mtu20k/160Mbps'
+def analyzeit(logger, folder, myAnalyzer, remoteIP, sizeOptions=[None]):
     # check if is folder
     if os.path.isdir(folder):
         files = [x for x in os.listdir(folder) if '.cpuRaw' in x]
     else:
         logger.error('{0} does not exist (or is not a folder)'.format(folder))
-        sys.exit(1)
-    # create analyzer obj
-    myAnalyzer = EnergyAnalyzer(
-        "shamu", isDebugging=DEBUG, unit="mW", output_path=folder)
+        return False
     for i in xrange(len(files)):
         file = files[i]
         logger.debug(file)
@@ -72,7 +59,7 @@ if __name__ == "__main__":
             # parse wifi
             if 'tcpdump' in status:
                 logger.debug('reading tcpdump...')
-                if 'bypass' in folder:
+                if 'bypass' in folder or 'RawSocket' in folder:
                     myfilter = ""
                 else:
                     myfilter = "host {0}".format(remoteIP)
@@ -103,3 +90,21 @@ if __name__ == "__main__":
             myAnalyzer.generate_result_summary(
                 wifi='tcpdump' in status,
                 f_suffix="_{0}".format(i))
+
+if __name__ == "__main__":
+    DEBUG = False
+    logger = EmptyLogger("App", isDebugging=DEBUG, printout=True)
+    # remoteIP = '128.111.68.220'
+    remoteIP = '192.168.2.1'
+    # sizeOptions = [1, 5, 10, 20, 50, 100]  # MB
+    sizeOptions = [None]  # MB
+    # folder = sys.argv[1]
+    # folder = './models/bypass/120MBps/'
+    folder = '/Users/yanzi/GDrive/UCSB/Projects/Offloading_2017/Data/' +\
+        'bg_measurement_test'
+    # 'initial_comparison/udp_mtu20k/160Mbps'
+    # create analyzer obj
+    myAnalyzer = EnergyAnalyzer(
+        "shamu", isDebugging=DEBUG, unit="mW", output_path=folder)
+
+    analyzeit(logger, folder, myAnalyzer, remoteIP, sizeOptions)

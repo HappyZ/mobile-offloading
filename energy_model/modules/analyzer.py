@@ -15,7 +15,7 @@ class EnergyAnalyzer():
     Energy analyzer
     '''
     def __init__(self, productname,
-                 isDebugging=False, unit="mW", output_path=None):
+                 isDebugging=False, unit="mW", output_path=None, logger=None):
         self.myModel = Model(isDebugging=isDebugging, unit=unit)
         self.myModel.load(productname)
         self.num_of_cores = getCoreNum(productname)
@@ -26,8 +26,11 @@ class EnergyAnalyzer():
         self.output_path = output_path
 
         self.DEBUG = isDebugging
-        self.logger = EmptyLogger(
-            "EnergyAnalyzer", isDebugging=self.DEBUG, printout=True)
+        if logger is None:
+            self.logger = EmptyLogger(
+                "EnergyAnalyzer", isDebugging=self.DEBUG, printout=True)
+        else:
+            self.logger = logger
 
     '''
     Variable clean up functions
@@ -444,7 +447,7 @@ class EnergyAnalyzer():
                 while self.wifi_rssi[
                         curRSSI_idx + 1][0] < self.data_tcpdump[i][0]:
                     curRSSI_idx += 1
-                    if curRSSI_idx >= len(self.wifi_rssi):
+                    if curRSSI_idx >= len(self.wifi_rssi) - 1:
                         curRSSI_idx -= 1
                         break
                 curRSSI = self.wifi_rssi[curRSSI_idx][1]
