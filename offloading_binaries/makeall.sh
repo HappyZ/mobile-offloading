@@ -7,6 +7,8 @@ cd client_send_bypassl3 && make
 cd ../
 cd client_send_normaludp && make
 cd ../
+cd client_send_normaludp_sendfile && make
+cd ../
 cd client_send_normaltcp && make
 cd ../
 # client read file only

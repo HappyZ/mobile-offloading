@@ -75,6 +75,7 @@ class MainActivity extends Activity {
     protected static String binary_TX_Normal;
     protected static String binary_TX_NormalUDP;
     protected static String binary_TX_Sendfile;
+    protected static String binary_TX_UDPSendfile;
     protected static String binary_TX_Splice;
     protected static String binary_TX_RawNormal;
     protected static final String binary_TX_RawSplice = "";
@@ -87,6 +88,7 @@ class MainActivity extends Activity {
     protected static boolean isRunning_TX_Normal = false;
     protected static boolean isRunning_TX_NormalUDP = false;
     protected static boolean isRunning_TX_Sendfile = false;
+    protected static boolean isRunning_TX_UDPSendfile = false;
     protected static boolean isRunning_TX_Splice = false;
     protected static boolean isRunning_TX_RawNormal = false;
     protected static boolean isRunning_TX_RawSplice = false;
@@ -128,6 +130,7 @@ class MainActivity extends Activity {
             Runtime.getRuntime().exec("su -c killall -9 " + binary_TX_Normal).waitFor();
             Runtime.getRuntime().exec("su -c killall -9 " + binary_TX_NormalUDP).waitFor();
             Runtime.getRuntime().exec("su -c killall -9 " + binary_TX_Sendfile).waitFor();
+            Runtime.getRuntime().exec("su -c killall -9 " + binary_TX_UDPSendfile).waitFor();
             Runtime.getRuntime().exec("su -c killall -9 " + binary_TX_Splice).waitFor();
             Runtime.getRuntime().exec("su -c killall -9 " + binary_TX_RawNormal).waitFor();
             Runtime.getRuntime().exec("su -c killall -9 " + binary_RX_Normal).waitFor();
@@ -149,6 +152,8 @@ class MainActivity extends Activity {
             missingFiles += " " + binary_TX_NormalUDP;
         if (!Utilities.fileExist(binaryFolderPath + binary_TX_Sendfile))
             missingFiles += " " + binary_TX_Sendfile;
+        if (!Utilities.fileExist(binaryFolderPath + binary_TX_UDPSendfile))
+            missingFiles += " " + binary_TX_UDPSendfile;
         if (!Utilities.fileExist(binaryFolderPath + binary_TX_Splice))
             missingFiles += " " + binary_TX_Splice;
         if (!Utilities.fileExist(binaryFolderPath + binary_TX_RawNormal))
@@ -229,7 +234,7 @@ class MainActivity extends Activity {
                 new DialogInterface.OnMultiChoiceClickListener() {
             @Override
             public void onClick(DialogInterface dialog, int which, boolean isChecked) {
-                if (which == 5 || (flagRecv && which == 2) || (mVersion < 21 && which == 3)) {
+                if ((flagRecv && which == 2) || (mVersion < 21 && which == 3)) {
                     Toast.makeText(MainActivity.this, "not working", Toast.LENGTH_SHORT).show();
                     return;
                 }
@@ -485,7 +490,12 @@ class MainActivity extends Activity {
                                                                 Thread.sleep(1005);
                                                             }
                                                             break;
-                                                        case 5: // rawsocket splice unimplemented
+                                                        case 5: // udp sendfile
+                                                            new Thread(new Thread_TX_CUDPSendfile()).start();
+                                                            Thread.sleep(1005);
+                                                            while (isRunning_TX_UDPSendfile) {
+                                                                Thread.sleep(1005);
+                                                            }
                                                             break;
                                                         default: // do nothing
                                                             break;
@@ -609,6 +619,7 @@ class MainActivity extends Activity {
         binary_TX_Normal = "client_send_normaltcp";
         binary_TX_NormalUDP = "client_send_normaludp";
         binary_TX_Sendfile = "client_send_normaltcp_sendfile";
+        binary_TX_UDPSendfile = "client_send_normaludp_sendfile";
         binary_TX_RawNormal = "client_send_bypassl3";
         binary_TX_Splice = "client_send_normaltcp_splice";
         binary_RX_Normal = "client_recv_normaltcp";

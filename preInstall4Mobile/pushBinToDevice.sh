@@ -11,6 +11,7 @@ adb push ../offloading_binaries/client_recv_normaltcp/client_recv_normaltcp /dat
 adb push ../offloading_binaries/client_recv_normaludp/client_recv_normaludp /data/local/tmp/
 adb push ../offloading_binaries/server_recv_normaltcp/server_m_recv_normaltcp /data/local/tmp/
 adb push ../offloading_binaries/server_recv_normaludp/server_m_recv_normaludp /data/local/tmp/
+adb push ../offloading_binaries/client_send_normaludp_sendfile/client_send_normaludp_sendfile /data/local/tmp/
 echo "* Pushing tcpdump 4.8.1"
 adb push tcpdump /data/local/tmp/
 echo "* Change permission"

@@ -46,7 +46,8 @@ class Utilities {
 
     // predefined selections
     static CharSequence[] existedItems = new CharSequence[] {
-        "Socket_Normal", "Socket_NormalUDP", "Socket_Sendfile", "Socket_Splice", "RawSocket_Normal"
+        "Socket_Normal", "Socket_NormalUDP", "Socket_Sendfile",
+            "Socket_Splice", "RawSocket_Normal", "Socket_UDPSendfile"
     };
     static CharSequence[] existedItemsThrpt = new CharSequence[]{
         "800Mbps", "760Mbps", "720Mbps", "680Mbps", "640Mbps", "600Mbps", "560Mbps",// 0-6
