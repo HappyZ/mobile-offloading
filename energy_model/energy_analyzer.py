@@ -26,8 +26,8 @@ def checkFiles(folderpath, timestamp):
         else:
             del status['tcpdump']
     # .cpu file
-    if not os.path.isfile(cpu):
-        del status['cpu']
+    # if not os.path.isfile(cpu):
+    del status['cpu']
     # .ss file
     if not os.path.isfile(ss):
         status['ss'] = None
@@ -102,6 +102,7 @@ if __name__ == "__main__":
     # folder = './models/bypass/120MBps/'
     folder = '/Users/yanzi/GDrive/UCSB/Projects/Offloading_2017/Data/' +\
         'bg_measurement_test'
+        # 'low_thrpt_tests/Socket_Normal/2.0Mbps'
     # 'initial_comparison/udp_mtu20k/160Mbps'
     # create analyzer obj
     myAnalyzer = EnergyAnalyzer(

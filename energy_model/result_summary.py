@@ -43,7 +43,10 @@ for method in sorted(mydict.keys()):
             folderbase, foldername, method), 'wb')
     outf.write(
         '#thrpt(Mbps),avg_total_pwr(mW),' +
-        'avg_cpu_pwr(mW),avg_cpu_util(%),avg_wifi_pwr(mW)\n')
+        'avg_cpu_pwr(mW),avg_cpu_util(%),avg_wifi_pwr(mW),' +
+        'avg_total_energy(mJ),avg_cpu_energy(mJ),' +
+        'avg_time(s),avg_thrpt(Mbps),' +
+        'user,nice,system,iowait,irq,softirq\n')
     thrpts = [float(x) for x in mydict[method].keys()]
     for thrpt in sorted(thrpts):
         filepath = '{0}/{1}/{2}/{3:.1f}Mbps/result_overview.csv'.format(
@@ -56,6 +59,16 @@ for method in sorted(mydict.keys()):
         avg_cpu_pwr = 0
         avg_cpu_util = 0
         avg_wifi_pwr = 0
+        avg_total_energy = 0
+        avg_cpu_energy = 0
+        avg_time = 0
+        avg_thrpt = 0
+        user = 0
+        nice = 0
+        system = 0
+        iowait = 0
+        irq = 0
+        softirq = 0
         counter = 0
         for line in contents:
             if '#' in line:
@@ -64,6 +77,16 @@ for method in sorted(mydict.keys()):
             avg_total_pwr += float(tmp[4])
             avg_cpu_pwr += float(tmp[8])
             avg_cpu_util += float(tmp[13])
+            avg_total_energy += float(tmp[2])
+            avg_cpu_energy += float(tmp[6])
+            avg_time += float(tmp[3])
+            avg_thrpt += float(tmp[1])
+            user += float(tmp[19])
+            nice += float(tmp[20])
+            system += float(tmp[21])
+            iowait += float(tmp[22])
+            irq += float(tmp[23])
+            softirq += float(tmp[24])
             counter += 1
             if len(tmp) > 15:
                 avg_wifi_pwr += float(tmp[16])
@@ -72,7 +95,23 @@ for method in sorted(mydict.keys()):
             avg_cpu_pwr /= counter
             avg_cpu_util /= counter
             avg_wifi_pwr /= counter
-        outf.write('{0},{1:.4f},{2:.4f},{3:.4f},{4:.4f}\n'.format(
+            avg_total_energy /= counter
+            avg_cpu_energy /= counter
+            avg_time /= counter
+            avg_thrpt /= counter
+            user /= counter
+            nice /= counter
+            system /= counter
+            iowait /= counter
+            irq /= counter
+            softirq /= counter
+        outf.write('{0},{1:.4f},{2:.4f},{3:.4f},{4:.4f},'.format(
             thrpt, avg_total_pwr,
             avg_cpu_pwr, avg_cpu_util, avg_wifi_pwr))
+        outf.write('{0:.4f},{1:.4f},{2:.4f},{3:.4f},'.format(
+            avg_total_energy, avg_cpu_energy,
+            avg_time, avg_thrpt))
+        outf.write('{0:.4f},{1:.4f},{2:.4f},{3:.4f},{4:.4f},{5:.4f}\n'.format(
+            user, nice, system, iowait,
+            irq, softirq))
     outf.close()

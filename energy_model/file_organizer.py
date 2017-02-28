@@ -74,7 +74,7 @@ def load_folder(
 mydict = collections.defaultdict(lambda: collections.defaultdict(list))
 
 # folder name
-foldername = 'low_thrpt_tests'
+foldername = 'initial_comparison'
 folderbase = '/Users/yanzi/GDrive/UCSB/Projects/Offloading_2017/Data/'
 
 # get files

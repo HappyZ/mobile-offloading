@@ -41,7 +41,9 @@ class EnergyAnalyzer():
 
     def clean_up_cpu_data(self):
         self.data_cpu = []  # (sorted) cpu results of logs
+        self.data_cpu_details = []
         self.data_cpu_d = []  # deltas between pair of results
+        self.data_cpu_details_d = []  # deltas between pair of results
         self.avg_log_freq = 0
 
     def clean_up_cpu_result(self):
@@ -91,35 +93,80 @@ class EnergyAnalyzer():
     '''
     CPU
     '''
-    def parse_cpu_raw(self, filepath):
-        def parseUsedCPU(tmp, offset):
-            return int(tmp[1 + offset]) + int(tmp[2 + offset]) +\
-                int(tmp[3 + offset]) + int(tmp[5 + offset]) +\
-                int(tmp[6 + offset]) + int(tmp[7 + offset])
+    def parse_cpu_raw(self, filepath, details=True):
+        def get_user(tmp, offset):
+            return int(tmp[1 + offset])
+
+        def get_nice(tmp, offset):
+            return int(tmp[2 + offset])
+
+        def get_system(tmp, offset):
+            return int(tmp[3 + offset])
+
+        def get_idle(tmp, offset):
+            return int(tmp[4 + offset])
+
+        def get_iowait(tmp, offset):
+            return int(tmp[5 + offset])
+
+        def get_irq(tmp, offset):
+            return int(tmp[6 + offset])
+
+        def get_softirq(tmp, offset):
+            return int(tmp[7 + offset])
+
+        def get_freq(tmp, offset):
+            return int(tmp[11 + offset])
+
+        def get_busy(tmp, offset):
+            return get_user(tmp, offset) + get_nice(tmp, offset) +\
+                get_system(tmp, offset) + get_iowait(tmp, offset) +\
+                get_irq(tmp, offset) + get_softirq(tmp, offset)
+
         if not os.path.isfile(filepath):
             self.logger.error(
                 "cpu raw log file {0} does not exist".format(filepath))
             sys.exit(-1)
+
         self.logger.debug("parse_cpu_raw started")
         with open(filepath, 'rU') as f:
             contents = f.readlines()
         f = open(filepath[:-3], 'wb')
+        if details:
+            f2 = open(filepath[:-3] + 'Detail', 'wb')
         for line in contents:
             tmp = line.split()
             f.write("{0} {1} {2}".format(
-                tmp[0], tmp[5], parseUsedCPU(tmp, 1)))
+                tmp[0], get_idle(tmp, 1), get_busy(tmp, 1)))
+            if details:
+                f2.write("{0}:{1} {2} {3} {4} {5} {6} {7}".format(
+                    tmp[0], get_busy(tmp, 1) + get_idle(tmp, 1),
+                    get_user(tmp, 1), get_nice(tmp, 1),
+                    get_system(tmp, 1), get_iowait(tmp, 1),
+                    get_irq(tmp, 1), get_softirq(tmp, 1)))
             for i in xrange(self.num_of_cores):
                 offset = (i + 1) * 12
                 f.write(" {0} {1} {2}".format(
-                    tmp[4 + offset],
-                    parseUsedCPU(tmp, offset),
-                    tmp[11 + offset]))
+                    get_idle(tmp, offset),
+                    get_busy(tmp, offset),
+                    get_freq(tmp, offset)))
+                if details:
+                    f2.write(":{0} {1} {2} {3} {4} {5} {6}".format(
+                        get_busy(tmp, offset) + get_idle(tmp, offset),
+                        get_user(tmp, offset), get_nice(tmp, offset),
+                        get_system(tmp, offset), get_iowait(tmp, offset),
+                        get_irq(tmp, offset), get_softirq(tmp, offset)))
             f.write('\n')
+            if details:
+                f2.write('\n')
         f.close()
+        if details:
+            f2.close()
         self.logger.debug("parse_cpu_raw ended")
 
     def read_cpu_log(self, filepath,
-                     startT=float('-inf'), endT=float('inf')):
+                     startT=float('-inf'), endT=float('inf'),
+                     details=True):
         if '.cpuRaw' in filepath or not os.path.isfile(filepath):
             if '.cpuRaw' in filepath:
                 self.parse_cpu_raw(filepath)
@@ -139,8 +186,16 @@ class EnergyAnalyzer():
         timeGap = 0.1 * 2
         with open(filepath, 'rU') as f:
             contents = f.readlines()
-        for line in contents:
+        if details:
+            with open(filepath + 'Detail', 'rU') as f:
+                contents2 = f.readlines()
+        for line_idx in xrange(len(contents)):
+            line = contents[line_idx]
+            line_details = contents2[line_idx]
             tmp = line.rstrip().split(' ')
+            if details:
+                tmp2 = line_details.rstrip().split(':')
+                tmp2_cpu = tmp2[1].split(' ')
             if len(tmp) < 3:
                 print "something is wrong at splitting the line for cpu_log"
                 sys.exit(-1)
@@ -155,6 +210,13 @@ class EnergyAnalyzer():
             cpu_cpu_idle = int(tmp[1])
             cpu_cpu_used = int(tmp[2])
             cpu_per_core = []
+            if details:
+                cpu_cpu_user = int(tmp2_cpu[1])
+                cpu_cpu_nice = int(tmp2_cpu[2])
+                cpu_cpu_system = int(tmp2_cpu[3])
+                cpu_cpu_iowait = int(tmp2_cpu[4])
+                cpu_cpu_irq = int(tmp2_cpu[5])
+                cpu_cpu_softirq = int(tmp2_cpu[6])
             if not skipFirstTime:
                 delta_t = timestamp - self.data_cpu[-1][0]
                 timeGap = delta_t * 2
@@ -162,6 +224,18 @@ class EnergyAnalyzer():
                 delta_cpu_idle = cpu_cpu_idle - self.data_cpu[-1][1]
                 delta_cpu_used = cpu_cpu_used - self.data_cpu[-1][2]
                 delta_per_core = []
+                if details:
+                    delta_cpu_user = \
+                        cpu_cpu_user - self.data_cpu_details[-1][0]
+                    delta_cpu_nice = \
+                        cpu_cpu_nice - self.data_cpu_details[-1][1]
+                    delta_cpu_system = \
+                        cpu_cpu_system - self.data_cpu_details[-1][2]
+                    delta_cpu_iowait = \
+                        cpu_cpu_iowait - self.data_cpu_details[-1][3]
+                    delta_cpu_irq = cpu_cpu_irq - self.data_cpu_details[-1][4]
+                    delta_cpu_softirq = \
+                        cpu_cpu_softirq - self.data_cpu_details[-1][5]
             for i in xrange(3, len(tmp), 3):
                 cpu_i_idle = int(tmp[i])
                 cpu_i_used = int(tmp[i + 1])
@@ -176,8 +250,14 @@ class EnergyAnalyzer():
                 self.data_cpu_d.append(
                     [delta_t, delta_cpu_idle,
                      delta_cpu_used, delta_per_core])
+                self.data_cpu_details_d.append(
+                    [delta_cpu_user, delta_cpu_nice, delta_cpu_system,
+                     delta_cpu_iowait, delta_cpu_irq, delta_cpu_softirq])
             self.data_cpu.append(
                 [timestamp, cpu_cpu_idle, cpu_cpu_used, cpu_per_core])
+            self.data_cpu_details.append(
+                [cpu_cpu_user, cpu_cpu_nice, cpu_cpu_system,
+                 cpu_cpu_iowait, cpu_cpu_irq, cpu_cpu_softirq])
             skipFirstTime = False
         if len(self.data_cpu_d) < 1:
             self.logger.error("parse_cpu_energy finds delta empty")
@@ -188,7 +268,7 @@ class EnergyAnalyzer():
         self.logger.debug("read_cpu_log ended")
 
     def parse_cpu_energy(self,
-                         power_base=0):
+                         power_base=0, details=True):
         self.logger.debug("clean up cpu result")
         self.clean_up_cpu_result()
         if len(self.data_cpu_d) < 1:
@@ -202,7 +282,15 @@ class EnergyAnalyzer():
         self.cpu_idle = [0 for i in xrange(num_of_cores + 1)]
         self.cpu_used = [0 for i in xrange(num_of_cores + 1)]
         self.cpu_utils_avg = [0 for i in xrange(num_of_cores + 1)]
-        for result in self.data_cpu_d:
+        if details:
+            self.cpu_user_util = 0
+            self.cpu_nice_util = 0
+            self.cpu_system_util = 0
+            self.cpu_iowait_util = 0
+            self.cpu_irq_util = 0
+            self.cpu_softirq_util = 0
+        for result_idx in xrange(len(self.data_cpu_d)):
+            result = self.data_cpu_d[result_idx]
             # allocate memory
             freqs = [0 for i in xrange(num_of_cores)]
             utils = [0 for i in xrange(num_of_cores + 1)]
@@ -222,6 +310,13 @@ class EnergyAnalyzer():
                 self.cpu_used[-1] += result[2]
             else:
                 utils[-1] = 0
+            if details:
+                self.cpu_user_util += self.data_cpu_details_d[result_idx][0]
+                self.cpu_nice_util += self.data_cpu_details_d[result_idx][1]
+                self.cpu_system_util += self.data_cpu_details_d[result_idx][2]
+                self.cpu_iowait_util += self.data_cpu_details_d[result_idx][3]
+                self.cpu_irq_util += self.data_cpu_details_d[result_idx][4]
+                self.cpu_softirq_util += self.data_cpu_details_d[result_idx][5]
             # store the results
             self.instant_freqs.append(freqs)
             self.instant_utils.append(utils)
@@ -241,6 +336,19 @@ class EnergyAnalyzer():
                 energy = instant_power
             self.cpu_time_total += result[0]
             self.cpu_energy_total += energy
+        if details:
+            self.cpu_user_util = 1.0 * \
+                self.cpu_user_util / (self.cpu_used[-1] + self.cpu_idle[-1])
+            self.cpu_nice_util = 1.0 * \
+                self.cpu_nice_util / (self.cpu_used[-1] + self.cpu_idle[-1])
+            self.cpu_system_util = 1.0 * \
+                self.cpu_system_util / (self.cpu_used[-1] + self.cpu_idle[-1])
+            self.cpu_iowait_util = 1.0 * \
+                self.cpu_iowait_util / (self.cpu_used[-1] + self.cpu_idle[-1])
+            self.cpu_irq_util = 1.0 * \
+                self.cpu_irq_util / (self.cpu_used[-1] + self.cpu_idle[-1])
+            self.cpu_softirq_util = 1.0 * \
+                self.cpu_softirq_util / (self.cpu_used[-1] + self.cpu_idle[-1])
         self.cpu_power_avg = self.cpu_energy_total / self.cpu_time_total
         for i in xrange(num_of_cores + 1):
             self.cpu_utils_avg[i] = 1.0 * \
@@ -513,7 +621,9 @@ class EnergyAnalyzer():
             self.wifi_power = -1
         self.logger.debug("parse_wifi_energy ended")
 
-    def generate_result_summary(self, cpu=True, wifi=True, f_suffix=""):
+    def generate_result_summary(
+            self,
+            cpu=True, wifi=True, f_suffix="", details=True):
         '''
         Generate summary of the results
         '''
@@ -550,6 +660,10 @@ class EnergyAnalyzer():
                 if wifi:
                     f.write(',wifi_energy(mJ),wifi_time(s),avg_wifi_pwr(mW),' +
                             'wifi_active_energy(mJ),wifi_idle_energy(mJ)')
+                if details:
+                    f.write(',cpu_user_util(%),cpu_nice_util(%)' +
+                            ',cpu_system_util(%),cpu_iowait_util(%)' +
+                            ',cpu_irq_util(%),cpu_softirq_util(%)')
                 f.write('\n')
             f.write('{0:.2f},'.format(self.data_size / 1000000.0))
             f.write('{0:.2f},'.format(self.wifi_avg_thrpt / 1000000.0 * 8))
@@ -591,6 +705,27 @@ class EnergyAnalyzer():
                 f.write(',{0:.8f},{1:.8f},{2:.8f},{3:.8f},{4:.8f}'.format(
                     self.wifi_energy, self.wifi_time, self.wifi_power,
                     self.wifi_active_energy, self.wifi_tail_energy))
+
+        if details:
+            self.logger.info(
+                "cpu user util: {0:.2f}%".format(self.cpu_user_util * 100))
+            self.logger.info(
+                "cpu nice util: {0:.2f}%".format(self.cpu_nice_util * 100))
+            self.logger.info(
+                "cpu system util: {0:.2f}%".format(self.cpu_system_util * 100))
+            self.logger.info(
+                "cpu iowait util: {0:.2f}%".format(self.cpu_iowait_util * 100))
+            self.logger.info(
+                "cpu irq util: {0:.2f}%".format(self.cpu_irq_util * 100))
+            self.logger.info(
+                "cpu softirq util: {0:.2f}%".format(
+                    self.cpu_softirq_util * 100))
+            if f is not None:
+                f.write(
+                    ',{0:.4f},{1:.4f},{2:.4f},{3:.4f},{4:.4f},{5:.4f}'.format(
+                        self.cpu_user_util * 100, self.cpu_nice_util * 100,
+                        self.cpu_system_util * 100, self.cpu_iowait_util * 100,
+                        self.cpu_irq_util * 100, self.cpu_softirq_util * 100))
 
         if f is not None:
             f.write('\n')
