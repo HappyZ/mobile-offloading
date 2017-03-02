@@ -90,9 +90,13 @@ class Thread_TX_CUDPSendfile implements Runnable {
                     MainActivity.myHandler.post(new Runnable() {
                         @Override
                         public void run() {
-                            MainActivity.txt_results.append("Sent " + sentBytes +
-                                    "bytes in " + duration +
-                                    "s (" +throughput/Utilities.oneMB +"Mbps)\n");
+                            MainActivity.txt_results.append("Sent " +
+                                    String.format("%.4f", sentBytes/Utilities.oneMB) +
+                                    " MB in " +
+                                    String.format("%.4f", duration) +
+                                    "s (" +
+                                    String.format("%.4f", throughput/Utilities.oneMB) +
+                                    "Mbps)\n");
                         }
                     });
                 }

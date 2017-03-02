@@ -28,22 +28,14 @@ import java.util.Date;
 import java.util.Locale;
 
 class MainActivity extends Activity {
-    // tmp fixed
-//    protected static final String remoteIP = "128.111.68.220";
-//    protected static final String remoteMAC = "18:03:73:c8:86:52";
-    protected static final String udpserver_pathport = "~/mobileRDMABeach/UDPServer 32000 ";
     // unchanged stuff
     protected static final String binaryFolderPath = "/data/local/tmp/";
     protected static final String binary_tcpdump = "tcpdump";
     private static final String TAG = "MainActivity";
     private static final int mVersion = Build.VERSION.SDK_INT;
     // the configs
-    protected static String remoteIP = "192.168.10.1";
-    protected static String remoteMAC = "f0:de:f1:0b:45:4a";
-    protected static String sshlinklab = "ssh linklab@hotcrp.cs.ucsb.edu"
-            + " -i /data/.ssh/id_rsa -o StrictHostKeyChecking=no";
-    protected static String sshlinklablocal = "ssh linklab@" + remoteIP
-            + " -i /data/.ssh/id_rsa -o StrictHostKeyChecking=no";
+    protected static String remoteIP = "192.168.2.1";
+    protected static String remoteMAC = "4e:32:75:f8:7e:64";
     // default variables
     protected static boolean isForcingCPU0 = false;
     protected static boolean isVerbose = true;
@@ -215,15 +207,27 @@ class MainActivity extends Activity {
         if (Utilities.validIP(string_remote_ip)) {
             remoteIP = string_remote_ip;
         } else {
-            Toast.makeText(this, "Entered IP is not right, will use " + remoteIP + "instead",
-                    Toast.LENGTH_SHORT);
+            Log.d(TAG, string_remote_ip);
+            myHandler.post(new Runnable() {
+                @Override
+                public void run() {
+                    MainActivity.txt_results.append(
+                            "Entered IP is not right, will use " + remoteIP + " instead");
+                }
+            });
         }
         // check if mac is in valid format
         if (Utilities.validMAC(string_remote_mac)) {
             remoteMAC = string_remote_mac;
         } else {
-            Toast.makeText(this, "Entered MAC is not right, will use " + remoteMAC + "instead",
-                    Toast.LENGTH_SHORT);
+            Log.d(TAG, string_remote_mac);
+            myHandler.post(new Runnable() {
+                @Override
+                public void run() {
+                    MainActivity.txt_results.append(
+                            "Entered MAC is not right, will use " + remoteMAC + " instead");
+                }
+            });
         }
         Log.d(TAG, "remote IP is set to " + remoteIP);
         Log.d(TAG, "remote MAC is set to " + remoteMAC);
@@ -347,11 +351,9 @@ class MainActivity extends Activity {
                                     int myI = selectedItemsThrpt.get(k);
                                     currentBandwidth = Utilities.findCorrespondingThrpt(myI);
 
-                                    if (isVerbose) {
-                                        Log.d(TAG, "bandwidth is set to " + currentBandwidth
-                                                + "\nTCP_port is set to " + Utilities.TCP_port
-                                                + "\nUDP_port is set to " + Utilities.UDP_port);
-                                    }
+                                    Log.d(TAG, "bandwidth is set to " + currentBandwidth
+                                            + "\nTCP_port is set to " + Utilities.TCP_port
+                                            + "\nUDP_port is set to " + Utilities.UDP_port);
 
                                     // start
                                     try {
@@ -368,48 +370,51 @@ class MainActivity extends Activity {
                                         Thread.sleep(1000);
 
                                         // start repeating
-                                        int waitTimeSec = 0;
+                                        int wait_time_sec = 0;
                                         for (int i = 0; i < repeatCounts; ++i) {
                                             for (int j = 0; j < selectedItems.size(); ++j) {
                                                 int whichItem = selectedItems.get(j);
-                                                if (flagRecv &&
-                                                        (whichItem == 1 || whichItem == 4)) {
-                                                    // 1 is udp, 4 is raw normal
+                                                if (flagRecv) {
                                                     if (isLocal) {
-//                                                        waitTimeSec = (Math.max(bytes2send / currentBandwidth + 20, 20));
+                                                        wait_time_sec = Math.max(
+                                                                bytes2send / currentBandwidth + 20,
+                                                                20);
 //                                                        Runtime.getRuntime().exec("su -c /data/local/tmp/UDPServer_mobile 32000 "
 //                                                                + currentBandwidth + " " + waitTimeSec + " &").waitFor();
                                                     } else {
-                                                        waitTimeSec = Math.max(
+                                                        wait_time_sec = Math.max(
                                                                 bytes2send / currentBandwidth + 20,
                                                                 60);
                                                         Process proc = Runtime.getRuntime().exec(
                                                                 "su");
                                                         DataOutputStream os = new DataOutputStream(
                                                                 proc.getOutputStream());
-                                                        if (isUsingWifi) {
-                                                            os.writeBytes(sshlinklablocal + "\n");
-                                                            os.flush();
-                                                            Thread.sleep(5001);
+                                                        os.writeBytes("ssh root@" +
+                                                                remoteIP + "\n");
+                                                        os.flush();
+                                                        Thread.sleep(1000);
+                                                        os.writeBytes("x\n");
+                                                        os.flush();
+                                                        Thread.sleep(1000);
+                                                        if (whichItem == 1 || whichItem == 4) {
+                                                            os.writeBytes(
+                                                                    "" +
+                                                                            "\n");
                                                         } else {
-                                                            os.writeBytes(sshlinklab + "\n");
-                                                            os.flush();
-                                                            Thread.sleep(10001);
+                                                            os.writeBytes(
+                                                                    "" +
+                                                                    "\n");
                                                         }
-                                                        os.writeBytes(
-                                                                udpserver_pathport +
-                                                                        currentBandwidth + " " +
-                                                                        waitTimeSec + " &\n");
                                                         os.flush();
-                                                        Thread.sleep(1001);
+                                                        Thread.sleep(1000);
                                                         os.writeBytes("exit\n");
                                                         os.flush();
                                                         os.writeBytes("exit\n");
                                                         os.flush();
-                                                        Thread.sleep(501);
+                                                        Thread.sleep(500);
                                                         os.close();
                                                         proc.destroy();
-                                                        Thread.sleep(805);
+                                                        Thread.sleep(500);
                                                     }
                                                 }
                                                 Thread.sleep(1000);
@@ -507,7 +512,7 @@ class MainActivity extends Activity {
                                                 Runtime.getRuntime().gc();
                                                 System.gc();
                                                 if (flagRecv && (selectedItems.get(j) == 1 || selectedItems.get(j) == 4)) {
-                                                    Thread.sleep(Math.abs(waitTimeSec*1000 - UDPfinishTime));
+                                                    Thread.sleep(Math.abs(wait_time_sec*1000 - UDPfinishTime));
                                                 }
                                                 commd[2] = "cd " + outFolderPath + " && mv *" + btn_click_time
                                                         + "* " + Utilities.existedItems[selectedItems.get(j)] + "/";

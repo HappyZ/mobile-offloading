@@ -50,7 +50,7 @@ class Thread_TX_CNormal implements Runnable {
 
             // if config to log per process
             while (MainActivity.isLoggingPerProcPID && MainActivity.perProcPID == -1) {
-                MainActivity.perProcPID = Utilities.getMyPID(MainActivity.binary_TX_Normal, false);
+                MainActivity.perProcPID = Utilities.getMyPID(MainActivity.binary_TX_Normal, true);
             }
 
             proc.waitFor();
@@ -92,9 +92,13 @@ class Thread_TX_CNormal implements Runnable {
                     MainActivity.myHandler.post(new Runnable() {
                         @Override
                         public void run() {
-                            MainActivity.txt_results.append("Sent " + sentBytes +
-                                    "bytes in " + duration +
-                                     "s (" +throughput/Utilities.oneMB +"Mbps)\n");
+                            MainActivity.txt_results.append("Sent " +
+                                    String.format("%.4f", sentBytes/Utilities.oneMB) +
+                                    " MB in " +
+                                    String.format("%.4f", duration) +
+                                    "s (" +
+                                    String.format("%.4f", throughput/Utilities.oneMB) +
+                                    "Mbps)\n");
                         }
                     });
                 }

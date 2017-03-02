@@ -10,10 +10,12 @@ import android.os.Environment;
 import android.os.IBinder;
 import android.util.Log;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.io.RandomAccessFile;
 import java.util.ArrayList;
 
@@ -207,7 +209,7 @@ class SSLogger extends Service {
 
         // file handler for cpu usage of wifi driver
         if (MainActivity.wifiDriverPID != -1)
-            cpuWiFiDriverPIDFileName = MainActivity.btn_click_time.concat(".cpuPID");
+            cpuWiFiDriverPIDFileName = MainActivity.btn_click_time.concat(".cpuDriver");
 
         // file string for cpu usage of my process
         if (MainActivity.isLoggingPerProcPID)
@@ -345,7 +347,7 @@ class SSLogger extends Service {
      * @return string that's been parsed
      */
     private static String parseProcPIDStat(String line) {
-        if (line == null) return "nan nan nan"; // -1 means it does not exist
+        if (line == null) return "-1 -1 -1"; // -1 means it does not exist
         String[] toks = line.split("\\s+");
         long idle = Long.parseLong(toks[15]) + Long.parseLong(toks[16]);
         long cpu = Long.parseLong(toks[13]) + Long.parseLong(toks[14]);
@@ -372,12 +374,24 @@ class SSLogger extends Service {
     private static String readUsagePID(int currentPID) {
         if (currentPID == -1) return null;
         // changed by Yanzi
+
+        Process proc;
+        BufferedReader stdout_buf;
+        String load;
         try {
-            RandomAccessFile reader = new RandomAccessFile("/proc/" + currentPID +"/stat", "r");
-            String load = reader.readLine();
-            reader.close();
+            proc = Runtime.getRuntime().exec("su -c cat /proc/" + currentPID + "/stat");
+            proc.waitFor();
+
+            // read std out
+            stdout_buf = new BufferedReader(new InputStreamReader(
+                    proc.getInputStream()));
+
+            load = stdout_buf.readLine();
+//            RandomAccessFile reader = new RandomAccessFile("/proc/" + currentPID +"/stat", "r");
+//            String load = reader.readLine();
+//            reader.close();
             return load;
-        } catch (IOException unimportant) {
+        } catch (IOException | InterruptedException unimportant) {
             Log.w(TAG, "exception on readUsagePID on pid: " + currentPID);
         }
         return null;

@@ -588,8 +588,8 @@ class Utilities {
     static boolean validMAC(String mac) {
         // use regular expression to validate a mac address
         // the only valid format is xx:xx:xx:xx:xx:xx
-        Pattern p = Pattern.compile("/^([a-fA-F0-9]{2}:){5}[a-fA-F0-9]{2}$/");
+        Pattern p = Pattern.compile("^([a-fA-F0-9]{2}:){5}[a-fA-F0-9]{2}$");
         Matcher m = p.matcher(mac);
-        return m.find();
+        return m.matches();
     }
 }
