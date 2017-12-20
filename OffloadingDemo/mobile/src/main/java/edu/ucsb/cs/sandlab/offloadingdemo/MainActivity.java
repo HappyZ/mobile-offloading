@@ -3,9 +3,12 @@ package edu.ucsb.cs.sandlab.offloadingdemo;
 import android.app.Activity;
 import android.app.ActivityManager;
 import android.app.AlertDialog;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.IntentFilter;
+import android.net.wifi.ScanResult;
 import android.net.wifi.WifiManager;
 import android.os.Build;
 import android.os.Environment;
@@ -25,9 +28,12 @@ import java.io.InputStreamReader;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 import java.util.Locale;
 
-class MainActivity extends Activity {
+import de.plinzen.rttmanager.RttManagerCompat;
+
+public class MainActivity extends Activity {
     // unchanged stuff
     protected static final String binaryFolderPath = "/data/local/tmp/";
     protected static final String binary_tcpdump = "tcpdump";
@@ -49,9 +55,10 @@ class MainActivity extends Activity {
     // maintained variables
     private Button btn_startTransmit, btn_startReceive, btn_measureBg;
     private Button btn_setByte2send, btn_setRepeatTimes, btn_setTCPDumpInterface,
-            btn_clearStatus, btn_setLogFreq, btn_setOthers;
+            btn_clearStatus, btn_setLogFreq, btn_setOthers, btn_ranging;
     private WifiManager wm;
     private Intent intentSSLogger;
+    static boolean runOnce;
     protected static int coreNum = 1;
     protected static int perProcPID = -1;
     protected static int UDPfinishTime = 0;
@@ -582,6 +589,25 @@ class MainActivity extends Activity {
         adb.create().show();
     }
 
+
+    public void startRanging(ScanResult wifiConfig,
+                             RttManagerCompat.RttListener rttListener) throws Throwable {
+        final RttManagerCompat.RttParams params = new RttManagerCompat.RttParams();
+        params.bssid = wifiConfig.BSSID;
+        params.requestType = RttManagerCompat.RTT_TYPE_TWO_SIDED;
+        params.frequency = wifiConfig.frequency;
+        params.centerFreq0 = wifiConfig.centerFreq0;
+        params.centerFreq1 = wifiConfig.centerFreq1;
+        params.channelWidth = wifiConfig.channelWidth;
+        RttManagerCompat rttManagerCompat = new RttManagerCompat(getApplicationContext());
+        final RttManagerCompat.RttCapabilities capabilities = rttManagerCompat.getRttCapabilities();
+        if (capabilities != null) {
+            params.LCIRequest = capabilities.lciSupported;
+            params.LCRRequest = capabilities.lcrSupported;
+        }
+        rttManagerCompat.startRanging(new RttManagerCompat.RttParams[]{params}, rttListener);
+    }
+
     /**
      * Initialize parameters etc.
      */
@@ -653,14 +679,68 @@ class MainActivity extends Activity {
         btn_setOthers = (Button) findViewById(R.id.btn_setOthers);
         btn_setLogFreq = (Button) findViewById(R.id.btn_setLogFreq);
         btn_clearStatus = (Button) findViewById(R.id.btn_clearStatus);
+        btn_ranging = (Button) findViewById(R.id.btn_ranging);
 
         // grab WiFi service and check if wifi is enabled
-        wm = (WifiManager) this.getSystemService(WIFI_SERVICE);
+        wm = (WifiManager) this.getApplicationContext().getSystemService(WIFI_SERVICE);
         isUsingWifi = wm.isWifiEnabled();
         txt_results.append(
                 (isUsingWifi ? getString(R.string.stat_wifion) : getString(R.string.stat_wifioff)));
 
         // click listener
+        btn_ranging.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (!isUsingWifi) return;
+                wm.startScan();
+                Log.d("ScanResult", "Start scanning");
+                runOnce = false;
+                BroadcastReceiver my_recv = new BroadcastReceiver() {
+                    @Override
+                    public void onReceive(Context c, Intent intent) {
+                        if (runOnce) return;
+                        List<ScanResult> results = wm.getScanResults();
+
+                        if (results.isEmpty()) {
+                            Log.d("ScanResult", "result is empty");
+                            return;
+                        }
+                        try{
+                            startRanging(results.get(0), new RttManagerCompat.RttListener() {
+                                @Override
+                                public void onAborted() {
+
+                                }
+
+                                @Override
+                                public void onFailure(int reason, String description) {
+                                    myHandler.post(new Runnable() {
+                                        @Override
+                                        public void run() {
+                                            txt_results.append("failed: " + description);
+                                        }
+                                    });
+                                }
+
+                                @Override
+                                public void onSuccess(RttManagerCompat.RttResult[] results) {
+                                    myHandler.post(new Runnable() {
+                                        @Override
+                                        public void run() {
+                                            for (int i = 0; i < results.length; i++)
+                                                txt_results.append(results[i].toString() + "\n");
+                                        }
+                                    });
+                                }
+                            });
+                            runOnce = true;
+                        } catch (Throwable e) {}
+                    }
+                };
+                registerReceiver(my_recv, new IntentFilter(WifiManager.SCAN_RESULTS_AVAILABLE_ACTION));
+
+            }
+        });
         btn_startTransmit.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -1031,7 +1111,7 @@ class MainActivity extends Activity {
     }
 
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
+    public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         initialization();

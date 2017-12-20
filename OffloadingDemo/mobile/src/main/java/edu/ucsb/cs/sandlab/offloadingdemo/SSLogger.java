@@ -24,7 +24,7 @@ import java.util.ArrayList;
  * Updated by yanzi on 01/27/2017
  * support multiple cores now
  */
-class SSLogger extends Service {
+public class SSLogger extends Service {
     private static final String TAG = "SSLogger";
     private boolean isRunning = false;
     private boolean isRunningPollingThread = false;
