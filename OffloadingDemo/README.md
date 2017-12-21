@@ -1,0 +1,1 @@
+In order to use WiFi Ranging based on 802.11mc RTT, must be API 23 and the generated apk app must be installed in `/system/priv-app/`. Permission of apk should be `755` and must grant location permission to the app.
