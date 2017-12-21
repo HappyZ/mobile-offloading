@@ -58,7 +58,7 @@ public class MainActivity extends Activity {
             btn_clearStatus, btn_setLogFreq, btn_setOthers, btn_ranging;
     private WifiManager wm;
     private Intent intentSSLogger;
-    static boolean runOnce;
+    static BroadcastReceiver my_recv;
     protected static int coreNum = 1;
     protected static int perProcPID = -1;
     protected static int UDPfinishTime = 0;
@@ -601,6 +601,12 @@ public class MainActivity extends Activity {
         params.channelWidth = wifiConfig.channelWidth;
         RttManagerCompat rttManagerCompat = new RttManagerCompat(getApplicationContext());
         final RttManagerCompat.RttCapabilities capabilities = rttManagerCompat.getRttCapabilities();
+        myHandler.post(new Runnable() {
+            @Override
+            public void run() {
+                txt_results.append("\n\n" + capabilities.toString() + "\n\n");
+            }
+        });
         if (capabilities != null) {
             params.LCIRequest = capabilities.lciSupported;
             params.LCRRequest = capabilities.lcrSupported;
@@ -694,51 +700,48 @@ public class MainActivity extends Activity {
                 if (!isUsingWifi) return;
                 wm.startScan();
                 Log.d("ScanResult", "Start scanning");
-                runOnce = false;
-                BroadcastReceiver my_recv = new BroadcastReceiver() {
+                my_recv = new BroadcastReceiver() {
                     @Override
                     public void onReceive(Context c, Intent intent) {
-                        if (runOnce) return;
                         List<ScanResult> results = wm.getScanResults();
-
                         if (results.isEmpty()) {
                             Log.d("ScanResult", "result is empty");
-                            return;
+                        } else {
+                            try {
+                                startRanging(results.get(0), new RttManagerCompat.RttListener() {
+                                    @Override
+                                    public void onAborted() {
+
+                                    }
+
+                                    @Override
+                                    public void onFailure(int reason, String description) {
+                                        myHandler.post(new Runnable() {
+                                            @Override
+                                            public void run() {
+                                                txt_results.append("failed: " + description);
+                                            }
+                                        });
+                                    }
+
+                                    @Override
+                                    public void onSuccess(RttManagerCompat.RttResult[] results) {
+                                        myHandler.post(new Runnable() {
+                                            @Override
+                                            public void run() {
+                                                for (int i = 0; i < results.length; i++)
+                                                    txt_results.append(results[i].toString() + "\n");
+                                            }
+                                        });
+                                    }
+                                });
+                            } catch (Throwable e) {}
                         }
-                        try{
-                            startRanging(results.get(0), new RttManagerCompat.RttListener() {
-                                @Override
-                                public void onAborted() {
-
-                                }
-
-                                @Override
-                                public void onFailure(int reason, String description) {
-                                    myHandler.post(new Runnable() {
-                                        @Override
-                                        public void run() {
-                                            txt_results.append("failed: " + description);
-                                        }
-                                    });
-                                }
-
-                                @Override
-                                public void onSuccess(RttManagerCompat.RttResult[] results) {
-                                    myHandler.post(new Runnable() {
-                                        @Override
-                                        public void run() {
-                                            for (int i = 0; i < results.length; i++)
-                                                txt_results.append(results[i].toString() + "\n");
-                                        }
-                                    });
-                                }
-                            });
-                            runOnce = true;
-                        } catch (Throwable e) {}
+                        unregisterReceiver(my_recv);
+                        Log.d("ScanResult", "receiver unregistered");
                     }
                 };
                 registerReceiver(my_recv, new IntentFilter(WifiManager.SCAN_RESULTS_AVAILABLE_ACTION));
-
             }
         });
         btn_startTransmit.setOnClickListener(new View.OnClickListener() {
