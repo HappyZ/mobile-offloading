@@ -614,6 +614,49 @@ public class MainActivity extends Activity {
         rttManagerCompat.startRanging(new RttManagerCompat.RttParams[]{params}, rttListener);
     }
 
+    protected void wifiRanging(List<ScanResult> results){
+        final CharSequence mTmp[] = new CharSequence[results.size()];
+        for (int which = 0; which < results.size(); which++) {
+            mTmp[which] = results.get(which).BSSID + " " + results.get(which).SSID;
+            Log.d("ScanBSSID", (String) mTmp[which]);
+        }
+        AlertDialog.Builder mDialog = new AlertDialog.Builder(MainActivity.this);
+        mDialog.setItems(mTmp, new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                Log.d("ChosenBSSID", results.get(which).BSSID);
+                try {
+                    startRanging(results.get(which), new RttManagerCompat.RttListener() {
+                        @Override
+                        public void onAborted() {}
+
+                        @Override
+                        public void onFailure(int reason, String description) {
+                            myHandler.post(new Runnable() {
+                                @Override
+                                public void run() {
+                                    txt_results.append("failed: " + description);
+                                }
+                            });
+                        }
+
+                        @Override
+                        public void onSuccess(RttManagerCompat.RttResult[] results) {
+                            myHandler.post(new Runnable() {
+                                @Override
+                                public void run() {
+                                    for (int i = 0; i < results.length; i++)
+                                        txt_results.append(results[i].toString() + "\n");
+                                }
+                            });
+                        }
+                    });
+                } catch (Throwable e) {}
+            }
+        });
+        mDialog.create().show();
+    }
+
     /**
      * Initialize parameters etc.
      */
@@ -707,37 +750,9 @@ public class MainActivity extends Activity {
                         if (results.isEmpty()) {
                             Log.d("ScanResult", "result is empty");
                         } else {
-                            try {
-                                startRanging(results.get(0), new RttManagerCompat.RttListener() {
-                                    @Override
-                                    public void onAborted() {
-
-                                    }
-
-                                    @Override
-                                    public void onFailure(int reason, String description) {
-                                        myHandler.post(new Runnable() {
-                                            @Override
-                                            public void run() {
-                                                txt_results.append("failed: " + description);
-                                            }
-                                        });
-                                    }
-
-                                    @Override
-                                    public void onSuccess(RttManagerCompat.RttResult[] results) {
-                                        myHandler.post(new Runnable() {
-                                            @Override
-                                            public void run() {
-                                                for (int i = 0; i < results.length; i++)
-                                                    txt_results.append(results[i].toString() + "\n");
-                                            }
-                                        });
-                                    }
-                                });
-                            } catch (Throwable e) {}
+                            wifiRanging(results);
                         }
-                        unregisterReceiver(my_recv);
+                        c.unregisterReceiver(my_recv);
                         Log.d("ScanResult", "receiver unregistered");
                     }
                 };
